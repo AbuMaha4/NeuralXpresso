@@ -1,0 +1,36 @@
+Class 1 - Video Preprocessor
+   Atributes - Video_location, Vid_location local/url, 
+
+   Methods - Initialisation,
+             Load,
+             Segment into images with timestamp
+             close Video
+             Output list of images
+
+
+Class 2 - Face Detection (model)
+    Atributes - 
+
+    Methods -   Initialisation (Load 'from facenet_pytorch import MTCNN')
+                Apply face detection model (from video preprocessor object)
+                    Multidementional list of image bounding boxes
+                Square the boxes
+                PADDING, where???
+                Cut image by bounding boxes
+                Define timestamp
+                Resize images to standard format of the emotion detector model
+                Output np.array 
+
+
+Class 3 - Emotion Detection (model)
+    Attributes - Face target size, Define Labels??
+
+    Methods -   Initialise, load model(hdf5)
+                Define Labels??
+                Normalise the face array
+                Fteed array into model (reurn??)
+                Return Pandas Dataframe (frame, timestamp, faceID, Category, Probability)
+                    Structure Dataframe based on best practice for plotting
+
+
+Class 4 - Post Processing/Plotting
