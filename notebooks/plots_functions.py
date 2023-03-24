@@ -42,11 +42,11 @@ def ThreeDimensionalGraph(df_plotting):
     df_counts = df_plotting.groupby(['emotion', 'frame'])['probability'].sum().reset_index()
 
     # Define the color palette
-    cb_palette = ['#40E0D0', '#ff7f00', '#9370DB', '#CA3435', '#1f77b4', '#9467bd', '#7f7f7f']
+    #cb_palette = ['#40E0D0', '#ff7f00', '#9370DB', '#CA3435', '#1f77b4', '#9467bd', '#7f7f7f']
 
     # Define a dictionary with the desired color for each emotion
-    emotion_colors = {'Neutral': '#CA3435', 'Happy': '#00ff00', 'Sad': '#0000ff', 'Angry': '#ff0000',
-                    'Surprise': '#ffff00', 'Fear': '#800080', 'Disgust': '#ffa500'}
+    emotion_colors = {'Neutral': '#7f7f7f', 'Happy': '#40E0D0', 'Sad': '#1f77b4', 'Angry': '#CA3435',
+                  'Surprise': '#9467bd', 'Fear': '#9370DB', 'Disgust': '#ff7f00'}
 
     # Update the color palette
     cb_palette = UpdateCBPalette(emotion_colors)
@@ -86,4 +86,105 @@ def ThreeDimensionalGraph(df_plotting):
     # Show the plot
     fig.show()
 
-ThreeDimensionalGraph(df_plotting)
+def hist_max_prob_emo(df_plotting):
+
+    max_prob_rows = df_plotting.groupby('frame')['probability'].idxmax().reset_index()
+    max_prob_df = df.loc[max_prob_rows['probability']]
+    feeling_counts = max_prob_df.groupby('emotion')['frame'].nunique()
+    max_prob_df
+
+    cb_palette = update_cb_palette(emotion_colors)
+
+    # Define palette 
+    #cb_palette = ['#40E0D0', '#ff7f00', '#9370DB', '#CA3435', '#1f77b4', '#9467bd', '#7f7f7f']
+    #CA3435
+    # Create the bar plot
+    fig = px.bar(max_prob_df, x='frame', y='probability', color='emotion', 
+                color_discrete_sequence=cb_palette, hover_data={"text": max_prob_df['emotion']})
+
+    # Update the layout
+    fig.update_layout(   
+        title={
+            'text': '<b>Maximum Probability of Emotion per Frame</b>',
+            'font': {'size': 24, 'color': 'black'},
+            'x': 0.5,
+            'y': 0.9,
+            'yanchor': 'middle'
+        },
+        xaxis_title='Frame',
+        yaxis_title='Probability',
+        legend_title='Emotion',
+        font=dict(family='Arial', size=14),
+        margin=dict(l=50, r=50, t=100, b=50),
+        plot_bgcolor='white'
+    )
+
+    # Update the legend with customizations
+    fig.update_traces(
+        hovertemplate='<br>'.join([
+            'Emotion: %{fullData.name}',
+            'Frame: %{x}',
+            'Probability: %{y:.2f}'
+        ]),
+        hoverlabel=dict(bgcolor='white', font_size=14),
+        showlegend=True,
+        hoverinfo='all'
+    )
+
+# Show the plot
+fig.show()
+
+def radar_chart(df_plotting):
+
+    max_emotions = df_plotting.apply(get_max_emotion, axis=1)
+    emotions_counts = max_emotions['emotion'].value_counts().reset_index()
+
+    cb_palette = update_cb_palette(emotion_colors)
+
+    # Define the color palette
+    #cb_palette = ['#40E0D0', '#ff7f00', '#9370DB', '#CA3435', '#1f77b4', '#9467bd', '#7f7f7f']
+    # create the plot
+    fig = go.Figure(data=go.Scatterpolar(
+        r=emotions_counts['count'].tolist(),
+        theta=emotions_counts['emotion'].tolist(),
+        fill='toself',
+        name='',
+        line_color=cb_palette[0],
+        fillcolor=cb_palette[0],
+        hovertemplate='%{theta}: %{r}'
+    ))
+
+    fig.update_layout(
+        polar=dict(
+            radialaxis=dict(
+                visible=True,
+                range=[0, max(emotions_counts['count'])],
+                showticklabels=False,
+                showgrid=False,
+                ticks=''
+            ),
+            angularaxis=dict(
+                tickfont=dict(size=14),
+                rotation=90,
+                direction='clockwise'
+            )
+        ),
+        showlegend=False,
+        height=400,
+        margin=dict(t=80, b=50, l=50, r=50),
+        font=dict(size=16)
+    )
+
+    fig.update_layout(
+        title={
+            'text': "<span style='font-size: 24px'>Prevalence Of Feelings During The Video</span>",
+            'y':0.95,
+            'x':0.5,
+            'xanchor': 'center',
+            'yanchor': 'top'
+        },
+        paper_bgcolor='white',
+        plot_bgcolor='white',
+    )
+
+fig.show()
