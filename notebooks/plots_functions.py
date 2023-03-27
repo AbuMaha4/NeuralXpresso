@@ -83,17 +83,24 @@ def ThreeDimensionalGraph(df_plotting):
     # Create the plot
     fig = go.Figure(data=traces, layout=layout)
 
-    # Show the plot
-    fig.show()
+    return fig
+
+
+
+
 
 def hist_max_prob_emo(df_plotting):
 
     max_prob_rows = df_plotting.groupby('frame')['probability'].idxmax().reset_index()
-    max_prob_df = df.loc[max_prob_rows['probability']]
+    max_prob_df = df_plotting.loc[max_prob_rows['probability']]
     feeling_counts = max_prob_df.groupby('emotion')['frame'].nunique()
     max_prob_df
 
-    cb_palette = update_cb_palette(emotion_colors)
+    # Define a dictionary with the desired color for each emotion
+    emotion_colors = {'Neutral': '#7f7f7f', 'Happy': '#40E0D0', 'Sad': '#1f77b4', 'Angry': '#CA3435',
+                  'Surprise': '#9467bd', 'Fear': '#9370DB', 'Disgust': '#ff7f00'}
+
+    cb_palette = UpdateCBPalette(emotion_colors)
 
     # Define palette 
     #cb_palette = ['#40E0D0', '#ff7f00', '#9370DB', '#CA3435', '#1f77b4', '#9467bd', '#7f7f7f']
@@ -130,16 +137,19 @@ def hist_max_prob_emo(df_plotting):
         showlegend=True,
         hoverinfo='all'
     )
+    return fig
 
-# Show the plot
-fig.show()
 
 def radar_chart(df_plotting):
 
     max_emotions = df_plotting.apply(get_max_emotion, axis=1)
     emotions_counts = max_emotions['emotion'].value_counts().reset_index()
 
-    cb_palette = update_cb_palette(emotion_colors)
+    # Define a dictionary with the desired color for each emotion
+    emotion_colors = {'Neutral': '#7f7f7f', 'Happy': '#40E0D0', 'Sad': '#1f77b4', 'Angry': '#CA3435',
+                  'Surprise': '#9467bd', 'Fear': '#9370DB', 'Disgust': '#ff7f00'}
+
+    cb_palette = UpdateCBPalette(emotion_colors)
 
     # Define the color palette
     #cb_palette = ['#40E0D0', '#ff7f00', '#9370DB', '#CA3435', '#1f77b4', '#9467bd', '#7f7f7f']
@@ -187,4 +197,5 @@ def radar_chart(df_plotting):
         plot_bgcolor='white',
     )
 
-fig.show()
+    return fig
+
