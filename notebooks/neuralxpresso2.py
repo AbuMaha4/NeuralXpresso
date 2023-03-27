@@ -49,7 +49,7 @@ class NeuralXpressoSession:
 
         else:
             fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')    
-            writer =  cv2.VideoWriter('output_video222.mp4', fourcc, 10, (self.session_video_processor.width, self.session_video_processor.height)) 
+            writer =  cv2.VideoWriter('output_video.mp4', fourcc, 10, (self.session_video_processor.width, self.session_video_processor.height)) 
             
             for batch in self.session_video_processor.get_batches():
                 for frame in batch:
@@ -396,3 +396,6 @@ class Person:
     
     def get_reference_face_encoding(self):
         return self.reference_face_encoding
+    
+
+
