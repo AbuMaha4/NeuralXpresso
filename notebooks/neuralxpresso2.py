@@ -397,5 +397,3 @@ class Person:
     def get_reference_face_encoding(self):
         return self.reference_face_encoding
     
-
-
