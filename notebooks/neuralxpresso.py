@@ -7,75 +7,86 @@ import cv2
 import numpy as np
 import pandas as pd
 from keras.models import load_model
-
-# only for showing face
-from matplotlib import pyplot as plt
+import urllib.request
 
 class NeuralXpressoSession:
     def __init__(
             self,
             yt_link,
-            skip_frames = 50,
-            batch_size = 10000,
-            video_output = False,
-            face_detector_type = 'face_recognition',
-            emotion_detector_offset = 1.4,
-            face_recognition_offset = 1,
-            face_recognition_sensitivity = 0.6
+            return_video_info = True,
     ):
-       self.session_video_processor = VideoProcessor(yt_link, skip_frames=skip_frames, batch_size=batch_size, video_output = video_output)
-       self.session_face_detector = FaceDetector(detection_type=face_detector_type)
-       self.session_emotion_detector = EmotionDetector(box_offset = emotion_detector_offset,
-                                                       frame_width = self.session_video_processor.width, 
-                                                       frame_height = self.session_video_processor.height)
-       self.session_person_identifier = PersonIdentifier(threshold=face_recognition_sensitivity, 
+       self.video_processor = VideoProcessor(yt_link)
+         
+    def run_analysis(self,
+                     skip_frames = 50,
+                     batch_size = 10000,
+                     video_output = False,
+                     face_detector_type = 'face_recognition',
+                     emotion_detector_offset = 1.4,
+                     face_recognition_offset = 1,
+                     face_recognition_sensitivity = 0.6):
+        
+        self.initialize_tools(skip_frames, batch_size, video_output, face_detector_type, emotion_detector_offset, face_recognition_offset, face_recognition_sensitivity)
+        result_dict = self.process_video()
+        
+        return result_dict
+        
+    def initialize_tools(self, skip_frames, batch_size, video_output, face_detector_type, emotion_detector_offset, face_recognition_offset, face_recognition_sensitivity):
+        
+        self.video_processor.update_video_info_during_tool_initialization(skip_frames, batch_size, video_output)
+
+        self.face_detector = FaceDetector(detection_type=face_detector_type)
+        self.emotion_detector = EmotionDetector(box_offset = emotion_detector_offset,
+                                                       frame_width = self.video_processor.width, 
+                                                       frame_height = self.video_processor.height)
+        self.person_identifier = PersonIdentifier(threshold=face_recognition_sensitivity, 
                                                          box_offset = face_recognition_offset,
-                                                         frame_width = self.session_video_processor.width, 
-                                                         frame_height = self.session_video_processor.height)
-    
-    def run_analysis(self):
+                                                         frame_width = self.video_processor.width, 
+                                                         frame_height = self.video_processor.height)
+
+    def process_video(self):
         frame_nr = 0
 
-        if self.session_video_processor.video_output == False:
-            for batch in self.session_video_processor.get_batches():
+        if self.video_processor.video_output == False:
+            for batch in self.video_processor.get_batches():
                 for frame in batch:
-                    face_boxes = self.session_face_detector.detect_faces(frame)
+                    face_boxes = self.face_detector.detect_faces(frame)
                     
                     if len(face_boxes) == 0:
-                        self.session_video_processor.frames_without_faces += 1
+                        self.video_processor.frames_without_faces += 1
                         continue
                     
                     for box in face_boxes: 
-                        prob = self.session_emotion_detector.detect_emotion(frame, box)
-                        character_id = self.session_person_identifier.identify_person(frame, box)
+                        prob = self.emotion_detector.detect_emotion(frame, box)
+                        character_id = self.person_identifier.identify_person(frame, box)
 
-                        self.session_video_processor.video_emotions_by_frame.append(prob)
-                        self.session_video_processor.video_info_by_frame.append((frame_nr, character_id))
+                        self.video_processor.video_emotions_by_frame.append(prob)
+                        self.video_processor.video_info_by_frame.append((frame_nr, character_id))
                     frame_nr +=1
 
         else:
             fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')    
-            writer =  cv2.VideoWriter('output_video.mp4', fourcc, 10, (self.session_video_processor.width, self.session_video_processor.height)) 
+            writer =  cv2.VideoWriter('output_video.mp4', fourcc, 10, (self.video_processor.width, self.video_processor.height)) 
             
-            for batch in self.session_video_processor.get_batches():
+            for batch in self.video_processor.get_batches():
                 for frame in batch:
-                    face_boxes = self.session_face_detector.detect_faces(frame)
+                    face_boxes = self.face_detector.detect_faces(frame)
                     
                     if len(face_boxes) == 0:
-                        self.session_video_processor.frames_without_faces += 1
+                        self.video_processor.frames_without_faces += 1
                         continue
                     
                     for box in face_boxes: 
-                        prob = self.session_emotion_detector.detect_emotion(frame, box)
-                        character_id = self.session_person_identifier.identify_person(frame, box)
+                        prob = self.emotion_detector.detect_emotion(frame, box)
+                        character_id = self.person_identifier.identify_person(frame, box)
 
-                        self.session_video_processor.video_emotions_by_frame.append(prob)
-                        self.session_video_processor.video_info_by_frame.append((frame_nr, character_id))                 
+                        self.video_processor.video_emotions_by_frame.append(prob)
+                        self.video_processor.video_info_by_frame.append((frame_nr, character_id))                 
                     
                         frame = self.draw_text_on_frame(frame, box, prob, character_id)
 
-                    writer.write(frame)
                     frame_nr +=1
+                    writer.write(frame)
             
             writer.release() 
 
@@ -112,8 +123,8 @@ class NeuralXpressoSession:
         df (pd.DataFrame): DataFrame showing the emotions detected for each frame and the corresponding person ID.
         """
 
-        df_emotions = pd.DataFrame(self.session_video_processor.video_emotions_by_frame, columns=EmotionDetector.get_emotion_categories())
-        df_frame_info = pd.DataFrame(self.session_video_processor.video_info_by_frame, columns=['frame', 'person_ID'])
+        df_emotions = pd.DataFrame(self.video_processor.video_emotions_by_frame, columns=EmotionDetector.get_emotion_categories())
+        df_frame_info = pd.DataFrame(self.video_processor.video_info_by_frame, columns=['frame', 'person_ID'])
         df = pd.concat([df_emotions, df_frame_info], axis=1)
         
         return df
@@ -137,7 +148,7 @@ class NeuralXpressoSession:
     
     def get_portraits(self):
         portraits_dict = {}
-        for person in self.session_person_identifier.persons:
+        for person in self.person_identifier.persons:
             portraits_dict[person.id] = person.representative_portrait
         return portraits_dict
     
@@ -152,18 +163,15 @@ class NeuralXpressoSession:
         Returns:
         None
         """
-        for person in self.session_person_identifier.persons:
+        for person in self.person_identifier.persons:
             if person.id == person_ID:
                 plt.imshow(person.representative_portrait, interpolation='nearest')
                 plt.show()
 
 
 class VideoProcessor:
-    def __init__(self, yt_link, batch_size=50, skip_frames=1, video_output = False):
+    def __init__(self, yt_link):
         self.yt_link = yt_link
-        self.batch_size = batch_size
-        self.skip_frames = skip_frames
-        self.video_output = video_output
         self.frames_without_faces = 0
         self.video_emotions_by_frame = []
         self.video_info_by_frame = []
@@ -181,24 +189,47 @@ class VideoProcessor:
         self.video = cv2.VideoCapture(stream.url)
 
         # Get available and used resolution - Debugging
-        #self.available_resolutions = [streams.resolution for streams in yt_video.streams.filter(type="video", progressive=True)]
+        self.yt_available_resolutions = [streams.resolution for streams in yt_video.streams.filter(type="video", progressive=True)]
         #self.used_resolution = stream.resolution
 
+        self.yt_title = yt_video.title
+        self.yt_description = VideoProcessor.get_first_line(yt_video.description)
+        self.yt_views = yt_video.views
+        self.yt_rating = yt_video.rating
+        self.yt_thumbnail_url = yt_video.thumbnail_url
+        self.yt_keywords = yt_video.keywords
+
         # Get the number of frames in the video
-        self.frame_count = int(self.video.get(cv2.CAP_PROP_FRAME_COUNT))
+        self.total_video_frame_count = int(self.video.get(cv2.CAP_PROP_FRAME_COUNT))
 
         # Get the frame rate of the video
-        self.fps = int(self.video.get(cv2.CAP_PROP_FPS))
+        self.video_fps = int(self.video.get(cv2.CAP_PROP_FPS))
 
         # Get the height and width of the video frames
         self.height = int(self.video.get(cv2.CAP_PROP_FRAME_HEIGHT))
         self.width = int(self.video.get(cv2.CAP_PROP_FRAME_WIDTH))
 
-        # Calculate the total number of frames to process after skipping frames
-        self.total_frames = len(range(0, self.frame_count, self.skip_frames))
+    def get_video_info(self):
+        result = {}
+        for attr_name in dir(self):
+            if attr_name.startswith('yt_'):
+                new_attr_name = attr_name[3:] # remove the 'yt_' prefix
+                result[new_attr_name] = getattr(self, attr_name)
+        
+        result['total_frame_count'] = self.total_video_frame_count
+        result['thumbnail'] = VideoProcessor.get_image_array_from_URL(self.yt_thumbnail_url)
+        
+        
+        return result
 
+    def update_video_info_during_tool_initialization(self, skip_frames, batch_size, video_output): 
+        self.video_output = video_output
+        self.skip_frames = skip_frames
+        self.batch_size = batch_size
+        # Calculate the total number of frames to process after skipping frames
+        self.total_frames = len(range(0, self.total_video_frame_count, self.skip_frames))
         # Calculate the number of batches required to process all the frames
-        self.num_batches = int(np.ceil(self.total_frames / self.batch_size))
+        self.num_batches = int(np.ceil(self.total_frames / self.batch_size))   
 
     def get_batches(self):
         # Initialize an empty numpy array to hold the frames
@@ -207,9 +238,10 @@ class VideoProcessor:
         self.frames_read = 0
 
         # Read the frames in batches and fill up the numpy array
-        for batch_start in range(0, self.frame_count, self.batch_size * self.skip_frames):
-            batch_end = min(batch_start + (self.batch_size * self.skip_frames), self.frame_count)
+        for batch_start in range(0, self.total_video_frame_count, self.batch_size * self.skip_frames):
+            batch_end = min(batch_start + (self.batch_size * self.skip_frames), self.total_video_frame_count)
             batch_index = 0
+
 
             for i in range(batch_start, batch_end):
                 ret, frame = self.video.read()
@@ -230,6 +262,32 @@ class VideoProcessor:
 
         # Release the video stream
         self.video.release()
+
+    @staticmethod
+    def get_first_line(s):
+        if not s:
+            return None
+        if '\n' in s:
+            return s.split('\n', 1)[0]
+        else:
+            return s[:150].split(' ', 1)[0]
+    
+    @staticmethod
+    def get_image_array_from_URL(url):
+        with urllib.request.urlopen(url) as url_response:
+            img_data = url_response.read()
+            img_array = np.asarray(bytearray(img_data), dtype=np.uint8)
+            img = None
+            if url.endswith('.jpg') or url.endswith('.jpeg'):
+                img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+            elif url.endswith('.png'):
+                img = cv2.imdecode(img_array, cv2.IMREAD_UNCHANGED)
+                if img.shape[2] == 4: # check if image has an alpha channel
+                    img = cv2.cvtColor(img, cv2.COLOR_BGRA2RGBA)
+            
+        return img
+
+
 
 class FaceDetector:
     def __init__(self, detection_type="face_recognition"):
@@ -432,7 +490,7 @@ class PersonIdentifier:
         return matched_person.id
 
 class Person:
-    def __init__(self, person_id, face_encoding, portrait, portrait_edge_length = 64):
+    def __init__(self, person_id, face_encoding, portrait, portrait_edge_length = 256):
         self.id = person_id
         self.appearances = 1
         self.reference_face_encoding = face_encoding
