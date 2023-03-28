@@ -8,30 +8,36 @@ import numpy as np
 import pandas as pd
 from keras.models import load_model
 
+# only for showing face
+from matplotlib import pyplot as plt
+
 class NeuralXpressoSession:
     def __init__(
             self,
             yt_link,
-            session_skip_frames = 50,
-            session_batch_size = 10000,
-            session_video_output = False,
-            session_face_detector_type = 'face_recognition',
-            session_face_detector_offset = 1,
-            session_face_recognition_sensitivity = 0.6
+            skip_frames = 50,
+            batch_size = 10000,
+            video_output = False,
+            face_detector_type = 'face_recognition',
+            emotion_detector_offset = 1.4,
+            face_recognition_offset = 1,
+            face_recognition_sensitivity = 0.6
     ):
-       self.session_video_processor = VideoProcessor(yt_link, skip_frames=session_skip_frames, batch_size=session_batch_size, video_output = session_video_output)
-       self.session_face_detector = FaceDetector(detection_type=session_face_detector_type, 
-                                        frame_width = self.session_video_processor.width, 
-                                        frame_height = self.session_video_processor.height,
-                                        offset = session_face_detector_offset)
-       self.session_emotion_detector = EmotionDetector()
-       self.session_person_identifier = PersonIdentifier(threshold=session_face_recognition_sensitivity)
+       self.session_video_processor = VideoProcessor(yt_link, skip_frames=skip_frames, batch_size=batch_size, video_output = video_output)
+       self.session_face_detector = FaceDetector(detection_type=face_detector_type)
+       self.session_emotion_detector = EmotionDetector(box_offset = emotion_detector_offset,
+                                                       frame_width = self.session_video_processor.width, 
+                                                       frame_height = self.session_video_processor.height)
+       self.session_person_identifier = PersonIdentifier(threshold=face_recognition_sensitivity, 
+                                                         box_offset = face_recognition_offset,
+                                                         frame_width = self.session_video_processor.width, 
+                                                         frame_height = self.session_video_processor.height)
     
     def run_analysis(self):
         frame_nr = 0
 
         if self.session_video_processor.video_output == False:
-            for idx, batch in enumerate(self.session_video_processor.get_batches()):
+            for batch in self.session_video_processor.get_batches():
                 for frame in batch:
                     face_boxes = self.session_face_detector.detect_faces(frame)
                     
@@ -40,18 +46,18 @@ class NeuralXpressoSession:
                         continue
                     
                     for box in face_boxes: 
-                        prob = self.session_emotion_detector.predict(frame, box)
-                        character_id = self.session_person_identifier.assignID(frame, box)
+                        prob = self.session_emotion_detector.detect_emotion(frame, box)
+                        character_id = self.session_person_identifier.identify_person(frame, box)
 
                         self.session_video_processor.video_emotions_by_frame.append(prob)
                         self.session_video_processor.video_info_by_frame.append((frame_nr, character_id))
                     frame_nr +=1
 
         else:
-            fourcc = cv2.VideoWriter_fourcc(*'XVID')    
-            writer =  cv2.VideoWriter('Output_video_new_Off1.mp4', fourcc, 10, (self.session_video_processor.width, self.session_video_processor.height)) 
+            fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')    
+            writer =  cv2.VideoWriter('output_video.mp4', fourcc, 10, (self.session_video_processor.width, self.session_video_processor.height)) 
             
-            for idx, batch in enumerate(self.session_video_processor.get_batches()):
+            for batch in self.session_video_processor.get_batches():
                 for frame in batch:
                     face_boxes = self.session_face_detector.detect_faces(frame)
                     
@@ -60,29 +66,97 @@ class NeuralXpressoSession:
                         continue
                     
                     for box in face_boxes: 
-                        prob = self.session_emotion_detector.predict(frame, box)
-                        character_id = self.session_person_identifier.assignID(frame, box)
+                        prob = self.session_emotion_detector.detect_emotion(frame, box)
+                        character_id = self.session_person_identifier.identify_person(frame, box)
 
                         self.session_video_processor.video_emotions_by_frame.append(prob)
-                        self.session_video_processor.video_info_by_frame.append((frame_nr, character_id))
+                        self.session_video_processor.video_info_by_frame.append((frame_nr, character_id))                 
                     
-                        max_emotion, max_prob = np.argmax(prob), np.max(prob)
-                        emotion_text = EmotionDetector.get_emotion_categories()[max_emotion]
-                
-                        y_min, y_max, x_min, x_max = box
-                
-                        cv2.rectangle(frame, (x_min, y_min), (x_max, y_max), (0, 255, 0), 2)
-                        cv2.putText(frame, f"Prob: {max_prob:.1%}", (x_min, y_max + 60), cv2.FONT_HERSHEY_DUPLEX, 1, (0, 0, 255), 1)
-                        cv2.putText(frame, f"{emotion_text}", (x_min, y_max + 30), cv2.FONT_HERSHEY_DUPLEX, 1, (0, 0, 255), 1)
-                        cv2.putText(frame, f"ID: {character_id}", (x_min, y_min -20), cv2.FONT_HERSHEY_DUPLEX, 1, (0, 0, 255), 1)
-                    
-                    
+                        frame = self.draw_text_on_frame(frame, box, prob, character_id)
+
                     writer.write(frame)
                     frame_nr +=1
             
             writer.release() 
 
-        return self.session_video_processor.get_overview_df(plottable=True)
+        video_overview = self.get_video_overview()
+        plottable_video_overview = pd.melt(video_overview, id_vars=['frame', 'person_ID'], value_vars=EmotionDetector.get_emotion_categories(), var_name='emotion', value_name='probability')
+        person_overview = self.get_person_overview(video_overview)
+        portraits = self.get_portraits()
+
+        return {'video_overview': plottable_video_overview, 
+                'character_overview': person_overview,
+                'portraits': portraits
+                }
+    
+    def draw_text_on_frame(self, frame, box, prob, character_id):
+        max_emotion, max_prob = np.argmax(prob), np.max(prob)
+        emotion_text = EmotionDetector.get_emotion_categories()[max_emotion]
+
+        y_min, y_max, x_min, x_max = box
+
+        cv2.rectangle(frame, (x_min, y_min), (x_max, y_max), (0, 255, 0), 2)
+        cv2.putText(frame, f"Prob: {max_prob:.1%}", (x_min, y_max + 60), cv2.FONT_HERSHEY_DUPLEX, 1, (0, 0, 255), 1)
+        cv2.putText(frame, f"{emotion_text}", (x_min, y_max + 30), cv2.FONT_HERSHEY_DUPLEX, 1, (0, 0, 255), 1)
+        cv2.putText(frame, f"ID: {character_id}", (x_min, y_min -20), cv2.FONT_HERSHEY_DUPLEX, 1, (0, 0, 255), 1)
+
+        return frame
+        
+    
+    def get_video_overview(self):
+        """
+        Generate an overview DataFrame of the video, showing the emotions detected for each frame and the corresponding
+        person ID.
+
+        Returns:
+        df (pd.DataFrame): DataFrame showing the emotions detected for each frame and the corresponding person ID.
+        """
+
+        df_emotions = pd.DataFrame(self.session_video_processor.video_emotions_by_frame, columns=EmotionDetector.get_emotion_categories())
+        df_frame_info = pd.DataFrame(self.session_video_processor.video_info_by_frame, columns=['frame', 'person_ID'])
+        df = pd.concat([df_emotions, df_frame_info], axis=1)
+        
+        return df
+    
+    def get_person_overview(self, video_overview_df):
+        """Generate an aggregated overview of each person's emotions and appearances in the video.
+        
+        Args:
+        video_overview_df (pandas.DataFrame): DataFrame containing emotions, frames, and person ID for each frame
+        
+        Returns:
+        pandas.DataFrame: DataFrame containing aggregated information of each person's emotions and appearances
+        """
+
+        agg_funcs = {'frame': 'count', 'Angry': 'mean', 'Disgust': 'mean', 'Fear': 'mean',
+                    'Happy': 'mean', 'Sad': 'mean', 'Surprise': 'mean', 'Neutral': 'mean'}
+        df_agg = video_overview_df.groupby('person_ID').agg(agg_funcs).reset_index()
+        df_agg = df_agg.rename(columns={'frame': 'appearances'})
+
+        return df_agg
+    
+    def get_portraits(self):
+        portraits_dict = {}
+        for person in self.session_person_identifier.persons:
+            portraits_dict[person.id] = person.representative_portrait
+        return portraits_dict
+    
+    def print_person_portrait(self, person_ID):
+        """
+        Displays a portrait of the person with the given ID using OpenCV.
+
+        Args:
+        - person_id (int): the ID of the person whose portrait should be displayed.
+        - portrait (np.ndarray): the portrait image of the person as a numpy array.
+
+        Returns:
+        None
+        """
+        for person in self.session_person_identifier.persons:
+            if person.id == person_ID:
+                plt.imshow(person.representative_portrait, interpolation='nearest')
+                plt.show()
+
 
 class VideoProcessor:
     def __init__(self, yt_link, batch_size=50, skip_frames=1, video_output = False):
@@ -156,25 +230,12 @@ class VideoProcessor:
 
         # Release the video stream
         self.video.release()
-    
-    def get_overview_df(self, plottable = False):
-
-        frame_info_cols = ['frame', 'person_ID']
-
-        df_emotions = pd.DataFrame(self.video_emotions_by_frame, columns=EmotionDetector.get_emotion_categories())
-        df_frame_info = pd.DataFrame(self.video_info_by_frame, columns=frame_info_cols)
-        df = pd.concat([df_emotions, df_frame_info], axis=1)
-        
-        if plottable:
-            df = pd.melt(df, id_vars=frame_info_cols, value_vars=EmotionDetector.get_emotion_categories(), var_name='emotion', value_name='probability')
-        return df
 
 class FaceDetector:
-    def __init__(self, frame_width, frame_height, detection_type="face_recognition", offset = 1):
-        self.frame_width = frame_width
-        self.frame_height = frame_height
+    def __init__(self, detection_type="face_recognition"):
+        #self.frame_width = frame_width
+        #self.frame_height = frame_height
         self.detection_type = detection_type
-        self.offset = offset
 
         if self.detection_type == "MTCNN":
             # Initialize the MTCNN face detector
@@ -212,11 +273,10 @@ class FaceDetector:
         valid_boxes = []
         for box in norm_boxes: 
             box_rearranged = np.array([box[0],box[3], box[1], box[2]])
-            #box_rearranged = [box[0],box[3], box[1], box[2]]     <--- Look again inside maybe
             face_landmark = face_recognition.face_landmarks(frame, [box_rearranged])[0]
             if FaceDetector.valid_landmarks(face_landmark):
                 # check for squared
-                box = self.augment_box(box, self.frame_width, self.frame_height, self.offset)
+                # box = self.augment_box(box, self.frame_width, self.frame_height, self.offset)
                 valid_boxes.append(box) 
 
         return valid_boxes
@@ -301,20 +361,25 @@ class FaceDetector:
         return [int(y_min), int(y_max), int(x_min), int(x_max)]            
 
 class EmotionDetector:
-    def __init__(self):
+   # def __init__(self):
+       # self.emotion_detector = load_model("/Users/mohan/neuefische/NeuralXpresso/models/emotion_model.hdf5", compile=False)
+    def __init__(self, box_offset, frame_width, frame_height):
         self.emotion_detector = load_model("/Users/mohan/neuefische/NeuralXpresso/models/emotion_model.hdf5", compile=False)
         self.emotion_categories = self.get_emotion_categories()
+        self.box_offset = box_offset
+        self.frame_width = frame_width
+        self.frame_height = frame_height
     
-    def predict(self, frame, box):
+    def detect_emotion(self, frame, box):
 
-        gray_cropped_face = EmotionDetector.crop_face(box, frame)
+        gray_cropped_face = self.crop_face(box, frame)
 
         prob = self.emotion_detector.predict(gray_cropped_face)[0]  # check for underscore
         return prob
     
-    @staticmethod
-    def crop_face(box, frame):
-        face = frame[box[0]:box[1], box[2]:box[3]]
+    def crop_face(self, box, frame):
+        box_augmented = FaceDetector.augment_box(box, self.frame_width, self.frame_height, self.box_offset)
+        face = frame[box_augmented[0]:box_augmented[1], box_augmented[2]:box_augmented[3]]
         face = cv2.cvtColor(face, cv2.COLOR_BGR2GRAY)
         face = cv2.resize(face, (64, 64))
         face = face.astype('float32')/ 255
@@ -328,30 +393,55 @@ class EmotionDetector:
         return ['Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise', 'Neutral']
     
 class PersonIdentifier:
-    def __init__(self, threshold = 0.6):
+    def __init__(self, box_offset, frame_width, frame_height, threshold = 0.6):
         self.threshold = threshold
-        self.individual_id_counter = 0
-        self.known_face_encodings = {}
+        self.persons = []
+        self.box_offset = box_offset
+        self.frame_width = frame_width
+        self.frame_height = frame_height
 
-    def assignID(self, frame, box):
+    def identify_person(self, frame, box):
+        
+        box_augmented = FaceDetector.augment_box(box, self.frame_width, self.frame_height, self.box_offset)
+        curr_portrait = frame[box_augmented[0]:box_augmented[1], box_augmented[2]:box_augmented[3]]
+        
         box_rearranged = np.array([box[0],box[3], box[1], box[2]])
-        #box_rearranged = [box[0],box[3], box[1], box[2]]     <--- Look again inside maybe
-        face_encoding = face_recognition.face_encodings(frame, [box_rearranged])[0]
+        curr_face_encoding = face_recognition.face_encodings(frame, [box_rearranged])[0]
         min_distance = float("inf")
-        matched_individual_id = None
+        matched_person = None
 
-        # Potential for: median face calculation & Passing the list
+        if not self.persons:
+            new_person_id = len(self.persons) + 1
+            new_person = Person(new_person_id, curr_face_encoding, curr_portrait)
+            self.persons.append(new_person)
+            return new_person.id
 
-        for individual_id, individual_reference_face_encoding in self.known_face_encodings.items():
-            distance = face_recognition.face_distance([individual_reference_face_encoding], face_encoding)[0]
-            if distance < self.threshold: # Adjust this threshold value based on your requirements
+        for person in self.persons:
+            distance = face_recognition.face_distance([person.get_reference_face_encoding()], curr_face_encoding)[0]
+            if distance < self.threshold:
                 if distance < min_distance:
                     min_distance = distance
-                    matched_individual_id = individual_id
-        
-        if matched_individual_id is None:
-            self.individual_id_counter += 1
-            matched_individual_id = self.individual_id_counter
-            self.known_face_encodings[self.individual_id_counter] = face_encoding
+                    matched_person = person
 
-        return matched_individual_id
+        if matched_person is None:
+            new_person_id = len(self.persons) + 1
+            new_person = Person(new_person_id, curr_face_encoding, curr_portrait)
+            self.persons.append(new_person)
+            matched_person = new_person
+
+        matched_person.add_appearance()
+
+        return matched_person.id
+
+class Person:
+    def __init__(self, person_id, face_encoding, portrait, portrait_edge_length = 64):
+        self.id = person_id
+        self.appearances = 1
+        self.reference_face_encoding = face_encoding
+        self.representative_portrait = cv2.resize(cv2.cvtColor(portrait, cv2.COLOR_BGR2RGB), (portrait_edge_length, portrait_edge_length))
+
+    def add_appearance(self):
+        self.appearances += 1
+    
+    def get_reference_face_encoding(self):
+        return self.reference_face_encoding
