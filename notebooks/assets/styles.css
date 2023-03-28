@@ -1,0 +1,35 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.sidebar {
+  width: 15%;
+  position: fixed;
+  z-index: 1;
+  top: 60px; /* Adjust this value according to the height of your header */
+  left: 0;
+  background-color: #f8f9fa;
+  padding: 80px;
+  overflow-x: hidden;
+  height: calc(100% - 60px); /* Adjust this value according to the height of your header */
+  overflow-y: auto;
+}
+
+.middle {
+  margin-left: 25%;
+  padding: 80px;
+}
+
+.header {
+  position: fixed;
+  width: 100%;
+  height: 60px; /* Adjust this value according to the height of your header */
+  padding: 20px 0px;
+  background-color: white;
+  z-index: 2;
+  border-bottom: 1px solid #dee2e6;
+  top: 0;
+  left: 0;
+}
