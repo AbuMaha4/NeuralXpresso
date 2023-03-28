@@ -302,7 +302,7 @@ class FaceDetector:
 
 class EmotionDetector:
     def __init__(self):
-        self.emotion_detector = load_model("../models/emotion_model.hdf5", compile=False)
+        self.emotion_detector = load_model("/Users/mohan/neuefische/NeuralXpresso/models/emotion_model.hdf5", compile=False)
         self.emotion_categories = self.get_emotion_categories()
     
     def predict(self, frame, box):

@@ -41,10 +41,10 @@ def update_graph(value):
         'yanchor': 'top'
     })
     
-    df = df_plotting
-    df['moving_avg'] = df['probability'].rolling(window=10, center=True).mean()
-    fig2 = px.area(df, x="frame", y="moving_avg", color="emotion")
-    #fig2 = pf.ThreeDimensionalGraph(df_plotting)
+    #df = df_plotting
+    #df['moving_avg'] = df['probability'].rolling(window=10, center=True).mean()
+    #fig2 = px.area(df, x="frame", y="moving_avg", color="emotion")
+    fig2 = pf.ThreeDimensionalGraph(df_plotting)
 
     fig3 = pf.hist_max_prob_emo(df_plotting)
     
