@@ -11,11 +11,17 @@ def get_pallette():
 
 
 def overview_plot(df_video):
+    '''
+    intakes df_video
+    outputs: Emotions over whole video, independent of character. Just the time-series
+  
+    '''
     cb_palette = get_pallette()
     grouped_df = df_video.groupby(['frame', 'emotion'])['probability'].sum().unstack()
     normalized_df = grouped_df.div(grouped_df.sum(axis=1), axis=0)
     normalized_df = normalized_df.rolling(window=10).mean().dropna()
     normalized_df.index = normalized_df.index.astype(str)
+
     fig = px.area(normalized_df, x=normalized_df.index, y=normalized_df.columns,
                 color_discrete_sequence=cb_palette)
 
@@ -58,10 +64,11 @@ def overview_plot(df_video):
     return fig
 
 def get_aggregated_emotion_counts(df_video, df_character):
-    # Get unique person IDs
-    unique_person_ids = df_video['person_ID'].unique()
+  
+    '''
+    This outputs the df which we need for the general radar plot
+    '''
 
-    
     # Initialize an empty DataFrame with all emotions as index
     aggregated_counts = pd.DataFrame(columns=['index', 'emotion'])
     aggregated_counts['index'] = ['Angry', 'Disgust', 'Fear', 'Happy', 'Neutral', 'Sad', 'Surprise']
@@ -76,9 +83,64 @@ def get_aggregated_emotion_counts(df_video, df_character):
 
     return aggregated_counts
 
+def get_radar_plot_overview(df_aggregated_emotion_counts):
+    
+    '''
+    this plots the general Radar plot
+    '''
+    
+    cb_palette = get_pallette()
 
+
+    fig = go.Figure(data=go.Scatterpolar(
+        r=df_aggregated_emotion_counts['emotion'],
+        theta=df_aggregated_emotion_counts['index'],
+        fill='toself',
+        name='Emotion Counts',
+        line_color=cb_palette[0],
+        hovertemplate='%{theta}: %{r}',
+        showlegend=False
+    ))
+    fig.update_xaxes(title_text="Person")
+
+    fig.update_layout(
+        polar=dict(
+            radialaxis=dict(
+                visible=True,
+                range=[0, max(df_aggregated_emotion_counts['emotion'])],
+                showticklabels=False,
+                showgrid=True,
+                ticks=''
+            ),
+            angularaxis=dict(
+                tickfont=dict(size=14),
+                rotation=90,
+                direction='clockwise'
+            )
+        ),
+        showlegend=False,
+        height=300,
+        margin=dict(t=80, b=50, l=50, r=50),
+        font=dict(size=16),
+        title={
+            'text': "Overall Prevalence Of Feelings During The Video",
+            'y':0.95,
+            'x':0.5,
+            'xanchor': 'center',
+            'yanchor': 'top'
+        },
+        paper_bgcolor='white',
+        plot_bgcolor='white'
+    )
+
+    return fig
 
 def get_overall_overview(df_video, df_character):
+
+
+    '''
+        This stacks together the general time series and the general radar plot
+    '''
 
     df_aggregated_emotion_counts = get_aggregated_emotion_counts(df_video, df_character)
     
@@ -86,6 +148,8 @@ def get_overall_overview(df_video, df_character):
     
     fig_radar = get_radar_plot_overview(df_aggregated_emotion_counts)
     fig_normalized = overview_plot(df_video)
+    
+    
     fig = make_subplots(rows=1, cols=2, column_widths=[0.7, 0.3], specs=[[{'type': 'xy'}, {'type': 'polar'}]], horizontal_spacing=0.1, vertical_spacing=0.2)
 
     # Add each trace object in fig_normalized.data to the subplot one by one
@@ -146,11 +210,20 @@ def get_overall_overview(df_video, df_character):
 
 
 def get_df_single_person(df_video, ID):
+
+    '''
+    This filters the df_video for 1 character
+    '''
+
     df_single_person = df_video.loc[df_video['person_ID'] == ID].copy()
     df_single_person.loc[:, 'moving_avg'] = df_single_person['probability'].rolling(window=10, center=True).mean()
     return df_single_person
 
 def get_df_radar(df_single_person):
+
+    '''
+    This gets the emotion counts for one character
+    '''
     # Apply the function to each row of the DataFrame
     max_prob_rows = df_single_person.groupby('frame')['probability'].idxmax().reset_index()
     max_prob_df = df_single_person.loc[max_prob_rows['probability']]
@@ -170,6 +243,10 @@ def get_df_radar(df_single_person):
 
 
 def get_emotion_landscape(df_single_person):
+
+    '''
+    This is the plot for the time series for a single character
+    '''
     # Create the plot 
     cb_palette = get_pallette()
     fig = px.area(df_single_person, x="frame", y="moving_avg", color="emotion",
@@ -215,55 +292,15 @@ def get_emotion_landscape(df_single_person):
     return fig
 
 
-def get_radar_plot_overview(df_aggregated_emotion_counts):
-    cb_palette = get_pallette()
 
-
-    fig = go.Figure(data=go.Scatterpolar(
-        r=df_aggregated_emotion_counts['emotion'],
-        theta=df_aggregated_emotion_counts['index'],
-        fill='toself',
-        name='Emotion Counts',
-        line_color=cb_palette[0],
-        hovertemplate='%{theta}: %{r}',
-        showlegend=False
-    ))
-    fig.update_xaxes(title_text="Person")
-
-    fig.update_layout(
-        polar=dict(
-            radialaxis=dict(
-                visible=True,
-                range=[0, max(df_aggregated_emotion_counts['emotion'])],
-                showticklabels=False,
-                showgrid=True,
-                ticks=''
-            ),
-            angularaxis=dict(
-                tickfont=dict(size=14),
-                rotation=90,
-                direction='clockwise'
-            )
-        ),
-        showlegend=False,
-        height=300,
-        margin=dict(t=80, b=50, l=50, r=50),
-        font=dict(size=16),
-        title={
-            'text': "Overall Prevalence Of Feelings During The Video",
-            'y':0.95,
-            'x':0.5,
-            'xanchor': 'center',
-            'yanchor': 'top'
-        },
-        paper_bgcolor='white',
-        plot_bgcolor='white'
-    )
-
-    return fig
 
 
 def get_radar_plot(df_radar):
+
+
+    '''
+    This is the radar plot for a single character because df_radar was generated using df_single_character
+    '''
     cb_palette = get_pallette()
 
 
@@ -312,6 +349,15 @@ def get_radar_plot(df_radar):
 
 
 def get_character_overview(df_video, ID, result):
+
+    '''
+    This stacks together:
+        1. Portrait
+        2. Timeseries for 1 character
+        3. Radar_plot for 1 character
+
+        Iteration over characters happens in app.py
+    '''
 
     df_single_person= get_df_single_person(df_video, ID)
     df_radar = get_df_radar(df_single_person)
