@@ -102,21 +102,23 @@ app.layout = html.Div(children=[
 ])
 
 
-def run_model(input_link):
-    nxp = nx.NeuralXpressoSession(yt_link = input_link)
-    result = nxp.run_analysis()
-    return result
-
-df_character = result['character_overview']
-df_video = result['video_overview']    
-    
-
 @app.callback(
     Output('output-div', 'children'),
     Input('submit-button', 'n_clicks'),
     State('input', 'value')
 )
-def update_output_div(n_clicks, input_link):
+
+
+def run_model(n_clicks, value):
+    if n_clicks == 0:
+        return []
+    nxp = nx.NeuralXpressoSession(yt_link = value)
+    result = nxp.run_analysis()
+    return result
+
+    
+
+def update_video_stats(n_clicks, input_link):
     if n_clicks == 0:
         return "Please enter a video link and click Submit"
     
