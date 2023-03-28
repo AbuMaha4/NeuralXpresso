@@ -13,12 +13,37 @@ app = dash.Dash(__name__)
 
 app.layout = html.Div([
     html.Div([
-        html.H1("NeuralXpresso", className='header')
+        html.H1("NeuralXpresso", className='header'),
     ]),
-    dcc.Input(id='input', type='text', value=''),
-    html.Button('Submit', id='submit-button', n_clicks=0),
-    html.Div(id='graphs-container')
+    html.Div([
+        dcc.Input(id='input', type='text', value=''),
+        html.Button('Submit', id='submit-button', n_clicks=0),
+        html.Br(),
+        html.Br(),
+        dcc.Dropdown(
+            id='dropdown1',
+            options=[
+                {'label': 'Option 1', 'value': 'option1'},
+                {'label': 'Option 2', 'value': 'option2'}
+            ],
+            value='option1'
+        ),
+        html.Br(),
+        dcc.Dropdown(
+            id='dropdown2',
+            options=[
+                {'label': 'Option 1', 'value': 'option1'},
+                {'label': 'Option 2', 'value': 'option2'}
+            ],
+            value='option1'
+        ),
+    ], className='sidebar'),
+    html.Div([
+        html.Div(id='graphs-container')
+    ], className='middle')
 ])
+
+
 
 
 @app.callback(
@@ -40,7 +65,8 @@ def update_graph(n_clicks, value):
     figures = []
 
     # Call the get_overview_normalized function and create a dcc.Graph component
-    overview_fig = plots.get_overview_normalized(df_video)
+    overview_fig = plots.get_overall_overview(df_video, df_character)
+
     overview_graph = dcc.Graph(figure=overview_fig)
 
     for ID in df_character.person_ID:
