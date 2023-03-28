@@ -2,6 +2,7 @@ import plotly.express as px
 import plotly.graph_objs as go
 from plotly.subplots import make_subplots
 import pandas as pd
+import numpy as np
 import cv2
 
 
@@ -24,7 +25,7 @@ def overview_plot(df_video):
 
     fig = px.area(normalized_df, x=normalized_df.index, y=normalized_df.columns,
                 color_discrete_sequence=cb_palette)
-
+    
     fig.update_layout(
             title={
                 'text': 'Probability of emotion per frame',
@@ -40,7 +41,7 @@ def overview_plot(df_video):
             plot_bgcolor='white',
             xaxis=dict(dtick=1),  #set the x-axis step 
             yaxis=dict(
-            title='Probability',
+            title='Emotions Probability',
             title_standoff=3
         )
         )
@@ -71,7 +72,7 @@ def get_aggregated_emotion_counts(df_video, df_character):
 
     # Initialize an empty DataFrame with all emotions as index
     aggregated_counts = pd.DataFrame(columns=['index', 'emotion'])
-    aggregated_counts['index'] = ['Angry', 'Disgust', 'Fear', 'Happy', 'Neutral', 'Sad', 'Surprise']
+    aggregated_counts['index'] = ['Angry', 'Disgust', 'Fear', 'Sad', 'Neutral', 'Happy', 'Surprise']
     aggregated_counts['emotion'] = 0
 
     for ID in df_character.person_ID:
@@ -177,7 +178,9 @@ def get_overall_overview(df_video, df_character):
             y=0.5,
             xanchor='left',
             yanchor='middle',
-            title_font=dict(size=16)
+            title_font=dict(size=16),
+            orientation='v',
+            traceorder='reversed'
             ),
             margin=dict(t=80, b=50, l=50, r=50),
             font=dict(size=16)
@@ -209,14 +212,47 @@ def get_overall_overview(df_video, df_character):
 
 
 
+# def get_df_single_person(df_video, ID):
+
+#     '''
+#     This filters the df_video for 1 character
+#     '''
+
+#     df_single_person = df_video.loc[df_video['person_ID'] == ID].copy()
+#     df_single_person.loc[:, 'moving_avg'] = df_single_person['probability'].rolling(window=1, center=True).mean()
+#     return df_single_person
+
 def get_df_single_person(df_video, ID):
-
     '''
-    This filters the df_video for 1 character
+    This returns a dataframe for a single person
     '''
 
-    df_single_person = df_video.loc[df_video['person_ID'] == ID].copy()
-    df_single_person.loc[:, 'moving_avg'] = df_single_person['probability'].rolling(window=10, center=True).mean()
+    df_single_person = df_video[df_video['person_ID'] == ID].copy()
+
+
+    all_emotions = ['Angry', 'Disgust', 'Fear', 'Sad', 'Neutral', 'Happy', 'Surprise']
+
+    for e in all_emotions:
+        frames_with_data = df_single_person[df_single_person['emotion'] == e]['frame'].values
+        first_frame = frames_with_data[0]
+        last_frame = frames_with_data[-1]
+
+        all_frames = np.arange(first_frame, last_frame+1)
+
+        missing_frames = set(all_frames) - set(frames_with_data)
+
+        df_missing = pd.DataFrame()
+        df_missing['frame'] = list(missing_frames)
+        df_missing['person_ID'] = ID
+        df_missing['emotion'] = e
+        df_missing['probability'] = 0
+
+        df_single_person = pd.concat([df_single_person, df_missing], axis=0)
+
+    df_single_person.sort_values(by=['emotion', 'frame'], inplace=True)
+
+    df_single_person.loc[:, 'moving_avg'] = df_single_person['probability'].rolling(window=5, center=True).mean().fillna(method='ffill').fillna(method='bfill')
+
     return df_single_person
 
 def get_df_radar(df_single_person):
@@ -230,14 +266,14 @@ def get_df_radar(df_single_person):
     df_radar = max_prob_df['emotion'].value_counts().reset_index()
 
     # List of all possible emotions
-    all_emotions = ['Angry', 'Disgust', 'Fear', 'Happy', 'Neutral', 'Sad', 'Surprise']
+    all_emotions = ['Angry', 'Disgust', 'Fear', 'Sad', 'Neutral', 'Happy', 'Surprise']
 
     # Reindex the DataFrame with all possible emotions and fill missing values with 0
-    complete_df = df_radar.set_index('index').reindex(all_emotions, fill_value=0).reset_index()
+    df_radar = df_radar.set_index('index').reindex(all_emotions, fill_value=0).reset_index()
 
-    complete_df.columns = ['index', 'emotion']
+    df_radar.columns = ['index', 'emotion']
 
-    return complete_df
+    return df_radar
 
 
 
@@ -268,7 +304,7 @@ def get_emotion_landscape(df_single_person):
         plot_bgcolor='white',
         xaxis=dict(dtick=1),  #set the x-axis step 
         yaxis=dict(
-        title='Probability',
+        title=' Emotions Probability',
         title_standoff=3
     )
     )
@@ -317,6 +353,7 @@ def get_radar_plot(df_radar):
 
     fig.update_layout(
         polar=dict(
+            
             radialaxis=dict(
                 visible=True,
                 range=[0, max(df_radar['emotion'])],
@@ -331,7 +368,7 @@ def get_radar_plot(df_radar):
             )
         ),
         showlegend=False,
-        height=300,
+        height=700,
         margin=dict(t=80, b=50, l=50, r=50),
         font=dict(size=16),
         title={
@@ -363,32 +400,27 @@ def get_character_overview(df_video, ID, result):
     df_radar = get_df_radar(df_single_person)
 
 
-
     fig_radar = get_radar_plot(df_radar)
     image_array = result['portraits'][ID]
     fig_area = get_emotion_landscape(df_single_person)
 
-    # Create a 3x1 grid of subplots with custom column widths
-    fig = make_subplots(rows=1, cols=3, column_widths=[0.2, 0.6, 0.2], specs=[[{'type': 'image'}, {'type': 'xy'}, {'type': 'polar'}]], horizontal_spacing=0.1, vertical_spacing=0.2)
+    # Create a 2x2 grid of subplots
+    fig = make_subplots(rows=2, cols=2, specs=[[{'type': 'image'}, {'type': 'polar'}],[{'type': 'xy', 'colspan':2},None]], horizontal_spacing=0.1, vertical_spacing=0.15)
 
 
     # Add trace1, trace2, and the image to their respective subplots
     fig.add_trace(px.imshow(cv2.cvtColor(image_array, cv2.COLOR_BGR2RGB), ).data[0], row=1, col=1)
-
+    fig.add_trace(fig_radar.data[0], row=1, col=2)
 
     for i in range(7):
-        fig.add_trace(fig_area.data[i], row=1, col=2)
+        fig.add_trace(fig_area.data[i], row=2, col=1)
 
         
-
-    fig.add_trace(fig_radar.data[0], row=1, col=3)
-
-
     fig.update_layout(
             polar=dict(
+                domain=dict(y=[0.5, 1]),
                 radialaxis=dict(
-                    showticklabels=False,
-                    
+                    showticklabels=False,  
                 ),
                 angularaxis=dict(
                     tickfont=dict(size=14),
@@ -396,59 +428,43 @@ def get_character_overview(df_video, ID, result):
                     direction='clockwise'
                 )
             ),
+
             showlegend=True,
             legend=dict(
             x=1.1,
-            y=0.5,
+            y=0,
             xanchor='left',
-            yanchor='middle',
-            title_font=dict(size=16)
+            yanchor='bottom',
+            title_font=dict(size=12),
+            orientation='v',
+            traceorder='reversed'
             ),
+
             margin=dict(t=80, b=50, l=50, r=50),
-            font=dict(size=16)
+            font=dict(size=12),
+
+            # Add the title above the image
+            annotations=[
+                dict(
+                    text=f'Character: {ID}',
+                    xref='x domain',
+                    yref='y domain',
+                    x=0.5,
+                    y=1.2,
+                    showarrow=False,
+                    font=dict(size=16),
+                )
+            ],
         )
 
 
-# Update layout
-    #fig.update_layout(title='Character Overview')
+    fig.update_xaxes(showticklabels=False, zeroline=False, visible=False, row=1, col=1)
+    fig.update_yaxes(showticklabels=False, zeroline=False, visible=False, row=1, col=1)
 
-    fig.update_xaxes(title_text="Frame", row=1, col=2)
-    fig.update_yaxes(title_text="Probability", row=1, col=2)
+    fig.update_xaxes(title_text="Time [s]", title_font=dict(size=12), title_standoff=8, row=2, col=1)
+    fig.update_yaxes(title_text="Emotion Probability", title_font=dict(size=12), title_standoff=8, tickmode='linear', dtick=0.2, row=2, col=1)
 
     fig.update_xaxes(title_text="Emotion Counts", row=1, col=3)
     fig.update_yaxes(title_text="Prevalence", row=1, col=3)
 
-    # Add subtitles for each subplot
-    annotations = [
-        dict(
-            x=0.02,
-            y=1.17,
-            xref='paper',
-            yref='paper',
-            text=f'Character: {ID}',
-            showarrow=False,
-            font=dict(size=18)
-        ),
-        dict(
-            x=0.50,
-            y=1.17,
-            xref='paper',
-            yref='paper',
-            text='Emotion-Landscape over Frames',
-            showarrow=False,
-            font=dict(size=18)
-        ),
-        dict(
-            x=1.0,
-            y=1.17,
-            xref='paper',
-            yref='paper',
-            text='Emotion Prevalence',
-            showarrow=False,
-            font=dict(size=18)
-        ),
-    ]
-    fig.update_layout(annotations=annotations)
-
-    # Show the figure
     return fig
