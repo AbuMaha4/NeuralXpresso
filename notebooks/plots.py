@@ -6,18 +6,36 @@ import numpy as np
 import cv2
 
 
-def get_pallette():
-    return ['#CA3435', '#00ff00', '#0000ff', '#ff0000', '#ffff00', '#800080', '#ffa500']
 
-
-
+def get_cb_palette(emotions):
+    """
+    Return a plotly cb_palette mapping emotions to colors.
+    
+    Arguments:
+    emotions -- a list of emotions to map to colors
+    
+    Returns:
+    A plotly cb_palette object
+    """
+    color_map = {
+        'Angry': '#ff0000',
+        'Disgust': '#ffff00',
+        'Fear': '#ffa500',
+        'Sad': '#FC00CC',
+        'Neutral': '#00ff00',
+        'Happy': '#008080',
+        'Surprise': '#0000ff'
+    }
+    return [color_map[emotion] for emotion in emotions]
+#ffa500
 def overview_plot(df_video):
     '''
     intakes df_video
     outputs: Emotions over whole video, independent of character. Just the time-series
   
     '''
-    cb_palette = get_pallette()
+    emotions = ['Angry', 'Disgust', 'Fear', 'Sad', 'Neutral', 'Happy', 'Surprise']
+    cb_palette = get_cb_palette(emotions)
     grouped_df = df_video.groupby(['frame', 'emotion'])['probability'].sum().unstack()
     normalized_df = grouped_df.div(grouped_df.sum(axis=1), axis=0)
     normalized_df = normalized_df.rolling(window=10).mean().dropna()
@@ -90,7 +108,8 @@ def get_radar_plot_overview(df_aggregated_emotion_counts):
     this plots the general Radar plot
     '''
     
-    cb_palette = get_pallette()
+    emotions = ['Angry', 'Disgust', 'Fear', 'Sad', 'Neutral', 'Happy', 'Surprise']
+    cb_palette = get_cb_palette(emotions)
 
 
     fig = go.Figure(data=go.Scatterpolar(
@@ -201,7 +220,8 @@ def get_emotion_landscape(df_single_person):
     This is the plot for the time series for a single character
     '''
     # Create the plot 
-    cb_palette = get_pallette()
+    emotions = ['Angry', 'Disgust', 'Fear', 'Sad', 'Neutral', 'Happy', 'Surprise']
+    cb_palette = get_cb_palette(emotions)
     fig = px.area(df_single_person, x="frame", y="probability", color="emotion",
                 color_discrete_sequence=cb_palette, hover_data={"text": df_single_person['emotion']})
 
@@ -254,7 +274,8 @@ def get_radar_plot(df_radar):
     '''
     This is the radar plot for a single character because df_radar was generated using df_single_character
     '''
-    cb_palette = get_pallette()
+    emotions = ['Angry', 'Disgust', 'Fear', 'Sad', 'Neutral', 'Happy', 'Surprise']
+    cb_palette = get_cb_palette(emotions)
 
 
     fig = go.Figure(data=go.Scatterpolar(
