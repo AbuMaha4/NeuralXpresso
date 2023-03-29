@@ -31,6 +31,23 @@ SIDEBAR_STYLE = {
 }
 
 
+logo = html.Div(
+    [
+        html.Img(
+            src="assets/logo.png",
+            style={"height": "60px"}
+        )
+    ],
+    style={
+        "position": "absolute",
+        "top": "20px",
+        "left": "20px",
+        "padding-top": "10px",
+        "padding-left": "10px"
+    }
+)
+
+
 sidebar = html.Div(
     [
         html.H2("Filters"),
@@ -63,10 +80,14 @@ sidebar = html.Div(
 
 
 ### ----------------------CREATING LAYOUT OF THE APP-------------###
+
+
 app = dash.Dash(external_stylesheets=[dbc.themes.LUX])
 
 
+
 app.layout = html.Div(children=[
+    logo,
     dbc.Row([
         dbc.Col(),
         dbc.Col(html.H1('NeuralXpresso'), width=9, style={'margin-left': '7px', 'margin-top': '7px'})
@@ -100,8 +121,7 @@ app.layout = html.Div(children=[
                 html.Div(id='output-stats'),
                 dcc.Graph(id='output-thumbnail'),
                 html.Button("Start Analysis", id='analysis-button', disabled=True),
-                html.Div(id='analysis-output')  # Add this line to include the missing object
-
+                html.Div(id='analysis-output')
             ])
         ], width=9, style={'margin-top': '10px', 'margin-left': '5px'})
     ]),
@@ -141,7 +161,7 @@ def update_video_stats(submit_clicks, analysis_clicks, input_value):
             # Create table with video statistics
             table_header = [html.Tr([html.Th("Info_Type"), html.Th("Info")])]
             table_body = [html.Tr([html.Td("Title"), html.Td(title)]),
-                          html.Tr([html.Td("Duration"), html.Td(views)]),
+                          html.Tr([html.Td("Views"), html.Td(views)]),
                           html.Tr([html.Td("Duration"), html.Td(duration)]),
                           html.Tr([html.Td("Resolution"), html.Td(resolution)])]
             stats_table = html.Table(table_header + table_body,
@@ -172,7 +192,7 @@ def update_video_stats(submit_clicks, analysis_clicks, input_value):
 
             for ID in df_character.person_ID:
                 if (df_character.loc[df_character['person_ID'] == ID].appearances.values[0] > (
-                        0.2 * df_character.appearances.sum())):
+                        0.07 * df_character.appearances.sum())):
                     fig = plots.get_character_overview(df_video, ID, result)
                     figures.append(fig)
 
