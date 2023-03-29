@@ -93,6 +93,7 @@ app.layout = html.Div(children=[
         dbc.Col(html.H1('NeuralXpresso'), width=9, style={'margin-left': '7px', 'margin-top': '7px'})
     ]),
 
+
     dbc.Row([
         dbc.Col(),
         dbc.Col([
@@ -123,10 +124,17 @@ app.layout = html.Div(children=[
                 html.Button("Start Analysis", id='analysis-button', disabled=True),
                 html.Div(id='analysis-output')
             ])
-        ], width=9, style={'margin-top': '10px', 'margin-left': '5px'})
-    ]),
+        ], width=9, style={'margin-top': '10px', 'margin-left': '5px'}),
+        #for overallview text
+                dbc.Row([
+                    dbc.Col(),
+                    dbc.Col(html.H2('Overall emotion of the entire video for all characters'), width=9, style={'margin-left': '40px', 'margin-top': '7px'})
+                ]),
 
-])
+                ])
+
+    ])
+
 
 # Define the update_video_stats callback
 @app.callback(
@@ -181,7 +189,11 @@ def update_video_stats(submit_clicks, analysis_clicks, input_value):
             nxp = nx.NeuralXpressoSession(yt_link=input_value)
             result = nxp.run_analysis(main_character_threshold=0.2)
 
+  
+
             figures = []
+
+
 
             # Call the get_overview_normalized function and create a dcc.Graph component
             overview_fig = plots.get_overall_overview(result['new_export']['overview_mean'])
