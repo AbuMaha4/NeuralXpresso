@@ -10,6 +10,9 @@ import cv2
 import plotly.graph_objs as go
 
 
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
 
 import pandas as pd
 import plotly.express as px
@@ -212,3 +215,4 @@ if __name__ == '__main__':
         #app.run_server(debug=True)
         app.run_server(debug=False,host="0.0.0.0",port=8080)
 
+ 
