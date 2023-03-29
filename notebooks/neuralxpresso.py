@@ -488,7 +488,7 @@ class FaceDetector:
 
 class EmotionDetector:
     def __init__(self, box_offset, frame_width, frame_height):
-        self.emotion_detector = load_model("/Users/steve/Neue_Fische/NeuralXpresso/models/emotion_model.hdf5", compile=False)
+        self.emotion_detector = load_model("notebooks/emotion_model.hdf5", compile=False)
         self.emotion_categories = self.get_emotion_categories()
         self.box_offset = box_offset
         self.frame_width = frame_width

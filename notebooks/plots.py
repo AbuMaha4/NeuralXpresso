@@ -387,7 +387,7 @@ def get_character_overview(df_video, ID, result):
     return fig
 
 
-def get_overall_overview(df_video, df_character):
+def get_overall_overview(df_video):
 
 
     '''
