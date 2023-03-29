@@ -326,7 +326,7 @@ def get_character_overview(df_video, ID, result):
 
     # Add trace1, trace2, and the image to their respective subplots
     image_array = result['portraits'][ID]
-    fig.add_trace(px.imshow(cv2.cvtColor(image_array, cv2.COLOR_BGR2RGB), ).data[0], row=1, col=1)
+    fig.add_trace(px.imshow(image_array, ).data[0], row=1, col=1)
     fig.add_trace(fig_radar.data[0], row=1, col=2)
 
     for i in range(7):
@@ -387,7 +387,7 @@ def get_character_overview(df_video, ID, result):
     return fig
 
 
-def get_overall_overview(df_video, df_character):
+def get_overall_overview(df_video):
 
 
     '''

@@ -8,6 +8,7 @@ import pandas as pd
 import numpy as np
 import cv2
 import plotly.graph_objs as go
+import base64
 
 
 
@@ -25,16 +26,27 @@ SIDEBAR_STYLE = {
     "top": 0,
     "left": 0,
     "bottom": 0,
-    "width": "20%",
+    "width": "25%",
     "padding": "2rem 1rem",
     "background-color": "#f8f9fa",
 }
 
 
+algorithm_info = {
+    'MTCNN': 'MTCNN is a deep learning-based face detection algorithm that uses a cascading technique to detect faces in an image. It is highly accurate and can detect faces of varying sizes and orientations.',
+    'Haar Cascade': 'Haar Cascade is a machine learning-based face detection algorithm that uses a set of Haar-like features to detect faces in an image. It is fast and can detect faces in real-time, but it may have lower accuracy compared to deep learning-based approaches.',
+    'Face Recognition': 'The Face-Recognition package is a deep learning-based face recognition algorithm that uses a neural network to encode faces into a 128-dimensional vector space. It can recognize faces with high accuracy, but it requires the faces to be aligned and well-lit, and may be computationally expensive for large datasets. Right now, this is the default model.'
+}
+
+"assets/logo.png"
+
+image_name = '/Users/mahaabu-khousa/neuefische/NeuralXpresso/notebooks/assets/logo.png'
+encoded_image = base64.b64encode(open(image_name, 'rb').read())
+
 logo = html.Div(
     [
         html.Img(
-            src="assets/logo.png",
+            src = 'data:image/png;base64,{}'.format(encoded_image),
             style={"height": "60px"}
         )
     ],
@@ -50,16 +62,69 @@ logo = html.Div(
 
 sidebar = html.Div(
     [
-        html.H2("Filters"),
+        html.H2("Playground", style={'fontSize': 22}),
         html.Hr(),
-        html.P("A simple sidebar layout with filters", className="lead"),
+        html.P("Coming soon", className="lead", style={'fontSize': 19}),
         dbc.Nav(
-            [
-                dcc.Dropdown(id='one'),
+            [   html.Label('Chose Video Resolution', style={'fontSize': 14}),
+                dcc.Dropdown(
+                    id='DP one',
+                    options=[
+                        {'label': '1040p', 'value': 'opt1'},
+                        {'label': '720p', 'value': 'opt2'},
+                        {'label': '360p', 'value': 'opt3'},
+                        {'label': '144p', 'value': 'opt4'}
+                    ],
+                    value='opt1',
+                    clearable=False
+                ),
                 html.Br(),
-                dcc.Dropdown(id='two'),
+                html.Label('Choose Face Detector',style={'fontSize': 14}),
+                dcc.Dropdown(
+                    id='DP two',
+                    options=[
+                        {'label': 'Face Recognition', 'value': 'Face Recognition'},
+                        {'label': 'MTCNN', 'value': 'MTCNN'},
+                        {'label': 'Haar Cascade', 'value': 'Haar Cascade'}
+                    ],
+                    value='None',
+                    clearable=False
+                ),
                 html.Br(),
-                dcc.Dropdown(id='three')
+                html.Label('Face Detection Sensitivity',style={'fontSize': 14}),
+                dcc.Slider(
+                    id='two',
+                    min=0,
+                    max=100,
+                    step=10,
+                    value=60,
+                    marks={i: str(i) for i in range(0, 100, 20)}
+                ),
+                html.Br(),
+                html.Label('Character Recognition Sensitivity',style={'fontSize': 14}),
+
+                dcc.Slider(
+                    id='three',
+                    min=0,
+                    max=100,
+                    step=10,
+                    value=10,
+                    marks={i: str(i) for i in range(0, 100, 20)}
+                ),
+                html.Br(),
+                html.Label('Skip Frames',style={'fontSize': 14}),
+
+                dcc.Slider(
+                    id='three',
+                    min=0,
+                    max=100,
+                    step=10,
+                    value=20,
+                    marks={i: str(i) for i in range(0, 100, 20)}
+                ),
+                html.Br(),
+                html.Div(id='algorithm-info', style={'padding': '10px', 'border': '1px solid #ccc'})
+
             ],
             vertical=True,
             pills=True,
@@ -67,6 +132,7 @@ sidebar = html.Div(
     ],
     style=SIDEBAR_STYLE,
 )
+
 
 
 
@@ -119,7 +185,7 @@ app.layout = html.Div(children=[
         dbc.Col([
             html.Div([
                 html.Div(id='output-stats'),
-                dcc.Graph(id='output-thumbnail'),
+                dcc.Graph(id='output-thumbnail', style={'display': 'block'}),
                 html.Button("Start Analysis", id='analysis-button', disabled=True),
                 html.Div(id='analysis-output')
             ])
@@ -127,6 +193,7 @@ app.layout = html.Div(children=[
     ]),
 
 ])
+
 
 # Define the update_video_stats callback
 @app.callback(
@@ -136,13 +203,16 @@ app.layout = html.Div(children=[
      Output('analysis-output', 'children')],
     [Input('submit-button', 'n_clicks'),
      Input('analysis-button', 'n_clicks')],
-    State('input', 'value')
-)
+    State('input', 'value'))
 
-def update_video_stats(submit_clicks, analysis_clicks, input_value):
+def update_video_stats(submit_clicks, analysis_clicks,input_value):
     try:
         if not input_value:
-            return [], go.Figure(), True, []
+            fig = go.Figure(layout=go.Layout(xaxis=dict(showgrid = False), yaxis=dict(showgrid=False)))
+            fig.update_yaxes(visible=False, showticklabels=False)
+            fig.update_xaxes(visible=False, showticklabels=False)
+            fig.update_layout(height=300, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
+            return [], fig, True, []
 
         ctx = dash.callback_context
         triggered_by = ctx.triggered[0]['prop_id']
@@ -159,27 +229,29 @@ def update_video_stats(submit_clicks, analysis_clicks, input_value):
             resolution = stats['available_resolutions']
 
             # Create table with video statistics
-            table_header = [html.Tr([html.Th("Info_Type"), html.Th("Info")])]
+            #table_header = [html.Tr([html.Th("Info_Type"), html.Th("Info")])]
             table_body = [html.Tr([html.Td("Title"), html.Td(title)]),
                           html.Tr([html.Td("Views"), html.Td(views)]),
-                          html.Tr([html.Td("Duration"), html.Td(duration)]),
+                          html.Tr([html.Td("Duration [Frames]"), html.Td(duration)]),
                           html.Tr([html.Td("Resolution"), html.Td(resolution)])]
-            stats_table = html.Table(table_header + table_body,
+            stats_table = html.Table(table_body,
                                      style={'border': '1px solid black', 'border-collapse': 'collapse',
                                             'width': '100%'})
-
+            graph_style = {'display': 'block'}
             # Display thumbnail image using Plotly Express
             if thumbnail is None:
-                fig = None
-            else:
-                fig = px.imshow(cv2.cvtColor(thumbnail, cv2.COLOR_BGR2RGB)).update_xaxes(showticklabels=False). \
-                    update_yaxes(showticklabels=False)
-
+                fig = go.Figure(layout=go.Layout(xaxis=dict(showgrid = False), yaxis=dict(showgrid=False)))
+                fig.update_yaxes(visible=False, showticklabels=False)
+                fig.update_xaxes(visible=False, showticklabels=False)
+                fig.update_layout(height=300, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
+                return stats_table, fig, False, []
+            else: 
+                fig = px.imshow(cv2.cvtColor(thumbnail, cv2.COLOR_BGR2RGB)).update_xaxes(showticklabels=False).update_yaxes(showticklabels=False)
             return stats_table, fig, False, []
 
         elif 'analysis-button' in triggered_by:
             nxp = nx.NeuralXpressoSession(yt_link=input_value)
-            result = nxp.run_analysis(main_character_threshold=0.2)
+            result = nxp.run_analysis(main_character_threshold=0.25, skip_frames=12)
 
             figures = []
 
@@ -206,6 +278,18 @@ def update_video_stats(submit_clicks, analysis_clicks, input_value):
     except Exception as e:
         return html.Div([f'Error: {e}']), go.Figure(), True, []
 
+
+@app.callback(
+    Output('algorithm-info', 'children'),
+    Input('DP two', 'value'),
+    prevent_initial_call=True  
+)
+
+def update_algorithm_info(algorithm):
+    ctx = dash.callback_context  # Add this line to access callback context
+    if ctx.triggered:  # Check if the callback was triggered by an event
+        return html.P(algorithm_info.get(algorithm, ''))
+    return ''
 
 
 if __name__ == '__main__':
