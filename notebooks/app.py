@@ -179,22 +179,19 @@ def update_video_stats(submit_clicks, analysis_clicks, input_value):
 
         elif 'analysis-button' in triggered_by:
             nxp = nx.NeuralXpressoSession(yt_link=input_value)
-            result = nxp.run_analysis()
-            df_character = result['character_overview']
-            df_video = result['video_overview']
+            result = nxp.run_analysis(main_character_threshold=0.2)
 
             figures = []
 
             # Call the get_overview_normalized function and create a dcc.Graph component
-            overview_fig = plots.get_overall_overview(df_video, df_character)
+            overview_fig = plots.get_overall_overview(result['new_export']['overview_mean'])
 
             overview_graph = dcc.Graph(figure=overview_fig)
 
-            for ID in df_character.person_ID:
-                if (df_character.loc[df_character['person_ID'] == ID].appearances.values[0] > (
-                        0.07 * df_character.appearances.sum())):
-                    fig = plots.get_character_overview(df_video, ID, result)
-                    figures.append(fig)
+            for ID in result['new_export']['main_character_data']:
+    
+                fig = plots.get_character_overview(result['new_export']['main_character_data'][ID], ID, result)
+                figures.append(fig)
 
             # Create dcc.Graph components for each character overview figure
             character_graphs = [dcc.Graph(figure=fig) for fig in figures]
