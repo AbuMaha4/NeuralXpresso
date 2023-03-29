@@ -194,7 +194,6 @@ class NeuralXpressoSession:
         merged_df = pd.merge(total_frames, df_grouped, on='frame', how='left')
 
         interpolated_df = self.interpolate_emotion_in_empty_frames(merged_df)
-        interpolated_df= interpolated_df.fillna(0)
         depivoted_df = pd.melt(interpolated_df, id_vars=['frame'], value_vars=EmotionDetector.get_emotion_categories(), var_name='emotion', value_name='probability')
 
         return depivoted_df
@@ -488,7 +487,7 @@ class FaceDetector:
 
 class EmotionDetector:
     def __init__(self, box_offset, frame_width, frame_height):
-        self.emotion_detector = load_model("/Users/steve/Neue_Fische/NeuralXpresso/models/emotion_model.hdf5", compile=False)
+        self.emotion_detector = load_model("../models/emotion_model.hdf5", compile=False)
         self.emotion_categories = self.get_emotion_categories()
         self.box_offset = box_offset
         self.frame_width = frame_width
