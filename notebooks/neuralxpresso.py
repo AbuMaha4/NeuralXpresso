@@ -17,7 +17,7 @@ class NeuralXpressoSession:
        self.video_processor = VideoProcessor(yt_link)
          
     def run_analysis(self,
-                     skip_frames = 50,
+                     skip_frames = 20,
                      #batch_size = 10000,
                      video_output = False,
                      face_detector_type = 'face_recognition',
@@ -73,7 +73,7 @@ class NeuralXpressoSession:
 
         else:
             fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')    
-            writer =  cv2.VideoWriter('output_video.mp4', fourcc, 10, (self.video_processor.width, self.video_processor.height)) 
+            writer =  cv2.VideoWriter('output_video_new.mp4', fourcc, 10, (self.video_processor.width, self.video_processor.height)) 
             
             for batch in self.video_processor.get_batches():
                 for frame in batch:
@@ -488,7 +488,7 @@ class FaceDetector:
 
 class EmotionDetector:
     def __init__(self, box_offset, frame_width, frame_height):
-        self.emotion_detector = load_model("/Users/steve/Neue_Fische/NeuralXpresso/models/emotion_model.hdf5", compile=False)
+        self.emotion_detector = load_model("models/emotion_model.hdf5", compile=False)
         self.emotion_categories = self.get_emotion_categories()
         self.box_offset = box_offset
         self.frame_width = frame_width
