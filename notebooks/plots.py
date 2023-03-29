@@ -6,6 +6,26 @@ import numpy as np
 import cv2
 
 
+def get_cb_palette(emotions):
+    """
+    Return a plotly cb_palette mapping emotions to colors.
+    
+    Arguments:
+    emotions -- a list of emotions to map to colors
+    
+    Returns:
+    A plotly cb_palette object
+    """
+    color_map = {
+        'Angry': '#ff0000',
+        'Disgust': '#ffff00',
+        'Fear': '#ffa500',
+        'Sad': '#FC00CC',
+        'Neutral': '#00ff00',
+        'Happy': '#008080',
+        'Surprise': '#0000ff'
+    }
+    return [color_map[emotion] for emotion in emotions]
 
 
 def overview_plot(df_video):
