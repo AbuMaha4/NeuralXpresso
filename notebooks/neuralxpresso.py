@@ -12,20 +12,27 @@ import urllib.request
 class NeuralXpressoSession:
     def __init__(
             self,
-            yt_link,
-            return_video_info = True,
+            yt_link
     ):
        self.video_processor = VideoProcessor(yt_link)
          
     def run_analysis(self,
                      skip_frames = 50,
-                     batch_size = 10000,
+                     #batch_size = 10000,
                      video_output = False,
                      face_detector_type = 'face_recognition',
                      emotion_detector_offset = 1.4,
                      face_recognition_offset = 1,
-                     face_recognition_sensitivity = 0.6):
+                     face_recognition_sensitivity = 0.6,
+                     main_character_threshold = 0.1,
+                     emotion_interpolation_frames_threshold = 2                     
+                     ):
         
+        # non-permanent solution, currently simply all frames = batch-size
+        batch_size = None
+
+        self.main_character_threshold = main_character_threshold
+        self.emotion_interpolation_frames_threshold = emotion_interpolation_frames_threshold
         self.initialize_tools(skip_frames, batch_size, video_output, face_detector_type, emotion_detector_offset, face_recognition_offset, face_recognition_sensitivity)
         result_dict = self.process_video()
         
@@ -50,6 +57,7 @@ class NeuralXpressoSession:
         if self.video_processor.video_output == False:
             for batch in self.video_processor.get_batches():
                 for frame in batch:
+                    frame_nr +=1
                     face_boxes = self.face_detector.detect_faces(frame)
                     
                     if len(face_boxes) == 0:
@@ -62,7 +70,6 @@ class NeuralXpressoSession:
 
                         self.video_processor.video_emotions_by_frame.append(prob)
                         self.video_processor.video_info_by_frame.append((frame_nr, character_id))
-                    frame_nr +=1
 
         else:
             fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')    
@@ -70,10 +77,12 @@ class NeuralXpressoSession:
             
             for batch in self.video_processor.get_batches():
                 for frame in batch:
+                    frame_nr +=1
                     face_boxes = self.face_detector.detect_faces(frame)
                     
                     if len(face_boxes) == 0:
                         self.video_processor.frames_without_faces += 1
+                        writer.write(frame)
                         continue
                     
                     for box in face_boxes: 
@@ -85,10 +94,13 @@ class NeuralXpressoSession:
                     
                         frame = self.draw_text_on_frame(frame, box, prob, character_id)
 
-                    frame_nr +=1
                     writer.write(frame)
             
             writer.release() 
+
+        self.video_processor.total_frames_processed_actual = frame_nr
+
+        self.process_results()
 
         video_overview = self.get_video_overview()
         plottable_video_overview = pd.melt(video_overview, id_vars=['frame', 'person_ID'], value_vars=EmotionDetector.get_emotion_categories(), var_name='emotion', value_name='probability')
@@ -97,8 +109,11 @@ class NeuralXpressoSession:
 
         return {'video_overview': plottable_video_overview, 
                 'character_overview': person_overview,
-                'portraits': portraits
+                'portraits': portraits, 
+                'new_export': self.results
                 }
+
+        return self.results
     
     def draw_text_on_frame(self, frame, box, prob, character_id):
         max_emotion, max_prob = np.argmax(prob), np.max(prob)
@@ -152,21 +167,72 @@ class NeuralXpressoSession:
             portraits_dict[person.id] = person.representative_portrait
         return portraits_dict
     
-    def print_person_portrait(self, person_ID):
-        """
-        Displays a portrait of the person with the given ID using OpenCV.
+    def process_results(self):
 
-        Args:
-        - person_id (int): the ID of the person whose portrait should be displayed.
-        - portrait (np.ndarray): the portrait image of the person as a numpy array.
+        self.results = {}
+        self.results['main_character_data'] = {}
 
-        Returns:
-        None
-        """
-        for person in self.person_identifier.persons:
-            if person.id == person_ID:
-                plt.imshow(person.representative_portrait, interpolation='nearest')
-                plt.show()
+        self.extract_main_characters()
+        df = self.get_video_overview()
+
+        self.results['overview_mean'] = self.get_timeline_df(df, ID = None)
+        for main_char in self.main_characters[:,0]:
+            self.results['main_character_data'][main_char] = self.get_timeline_df(df, ID = [main_char])
+
+    def get_timeline_df(self, df, ID = None):
+
+        if not ID:
+            reference_character_list = list(self.main_characters[:,0])
+        else:
+            reference_character_list = ID
+
+        df_main = df[df['person_ID'].isin(reference_character_list)]
+        # Group by frame and average emotions
+        df_grouped = df_main.groupby('frame')[['Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise', 'Neutral']].mean().reset_index()
+        total_frames = pd.DataFrame({'frame': range(1, self.video_processor.total_frames_processed_actual+1)})
+        # Merge the new DataFrame with the original DataFrame
+        merged_df = pd.merge(total_frames, df_grouped, on='frame', how='left')
+
+        interpolated_df = self.interpolate_emotion_in_empty_frames(merged_df)
+        interpolated_df= interpolated_df.fillna(0)
+        depivoted_df = pd.melt(interpolated_df, id_vars=['frame'], value_vars=EmotionDetector.get_emotion_categories(), var_name='emotion', value_name='probability')
+
+        return depivoted_df
+
+    def extract_main_characters(self):
+        appearances_framewise = np.array(self.video_processor.video_info_by_frame)
+        total_appearances = len(appearances_framewise)
+        main_character_framecount_threshold = total_appearances*self.main_character_threshold
+        person_frames = np.unique(appearances_framewise[:, 1], return_counts=True)
+        
+        main_characters_mask = person_frames[1] * main_character_framecount_threshold > total_appearances
+        main_characters = person_frames[0][main_characters_mask]
+        main_characters_appearances = person_frames[1][main_characters_mask]
+
+        main_characters_array = np.column_stack((main_characters, main_characters_appearances))
+
+        self.main_characters = main_characters_array
+
+    def interpolate_emotion_in_empty_frames(self, df):
+
+        # Compute the intermediate values using a Series, 'Neutral' chosen at random
+        calc = pd.Series(np.where(~df['Neutral'].isna(), df['frame'], np.nan))
+
+        # Compute the gap between consecutive values in the Series
+        gap = calc.bfill() - calc.ffill()
+
+        # Create a boolean mask based on the gap and emotion values, 'Neutral' chosen at random
+        mask = (gap <= self.emotion_interpolation_frames_threshold+1) & df['Neutral'].isna()
+
+        for emotion in EmotionDetector.get_emotion_categories():
+            # Use the mask for interpolation
+            df['Interpolated'] = df[emotion].interpolate(method='linear', limit_direction='forward', inplace=False, mask=mask)
+
+            df[emotion]=np.where(mask==True, df['Interpolated'], df[emotion])
+
+            df = df.drop(['Interpolated'], axis=1)
+
+        return df
 
 
 class VideoProcessor:
@@ -225,17 +291,19 @@ class VideoProcessor:
     def update_video_info_during_tool_initialization(self, skip_frames, batch_size, video_output): 
         self.video_output = video_output
         self.skip_frames = skip_frames
-        self.batch_size = batch_size
         # Calculate the total number of frames to process after skipping frames
-        self.total_frames = len(range(0, self.total_video_frame_count, self.skip_frames))
+        self.total_frames_processed_predicted = len(range(0, self.total_video_frame_count, self.skip_frames))
+        
+        #non-permanent solution
+        self.batch_size = int(self.total_frames_processed_predicted * 1.1)
         # Calculate the number of batches required to process all the frames
-        self.num_batches = int(np.ceil(self.total_frames / self.batch_size))   
+        self.num_batches_predicted = int(np.ceil(self.total_frames_processed_predicted / self.batch_size))   
 
     def get_batches(self):
         # Initialize an empty numpy array to hold the frames
         frames = np.empty((self.batch_size, self.height, self.width, 3), np.dtype('uint8'))
 
-        self.frames_read = 0
+        self.original_frames_read = 0
 
         # Read the frames in batches and fill up the numpy array
         for batch_start in range(0, self.total_video_frame_count, self.batch_size * self.skip_frames):
@@ -245,7 +313,7 @@ class VideoProcessor:
 
             for i in range(batch_start, batch_end):
                 ret, frame = self.video.read()
-                self.frames_read +=1
+                self.original_frames_read +=1
                 if not ret:
                     break
 
@@ -420,7 +488,7 @@ class FaceDetector:
 
 class EmotionDetector:
     def __init__(self, box_offset, frame_width, frame_height):
-        self.emotion_detector = load_model("../models/emotion_model.hdf5", compile=False)
+        self.emotion_detector = load_model("/Users/steve/Neue_Fische/NeuralXpresso/models/emotion_model.hdf5", compile=False)
         self.emotion_categories = self.get_emotion_categories()
         self.box_offset = box_offset
         self.frame_width = frame_width
@@ -501,3 +569,5 @@ class Person:
     
     def get_reference_face_encoding(self):
         return self.reference_face_encoding
+    
+    
