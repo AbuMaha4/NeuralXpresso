@@ -109,7 +109,8 @@ class NeuralXpressoSession:
 
         return {'video_overview': plottable_video_overview, 
                 'character_overview': person_overview,
-                'portraits': portraits
+                'portraits': portraits, 
+                'new_export': self.results
                 }
 
         return self.results
@@ -193,8 +194,9 @@ class NeuralXpressoSession:
         merged_df = pd.merge(total_frames, df_grouped, on='frame', how='left')
 
         interpolated_df = self.interpolate_emotion_in_empty_frames(merged_df)
+        depivoted_df = pd.melt(interpolated_df, id_vars=['frame'], value_vars=EmotionDetector.get_emotion_categories(), var_name='emotion', value_name='probability')
 
-        return interpolated_df
+        return depivoted_df
 
     def extract_main_characters(self):
         appearances_framewise = np.array(self.video_processor.video_info_by_frame)
