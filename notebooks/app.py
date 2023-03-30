@@ -240,6 +240,8 @@ def update_video_stats(submit_clicks, analysis_clicks,input_value):
 
             overview_graph = dcc.Graph(figure=overview_fig)
 
+
+
             for ID in data:
                 fig1 = plots.get_character_overview(data[ID], ID, result)
                 figures.append(fig1)
