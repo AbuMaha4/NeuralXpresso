@@ -34,8 +34,9 @@ def overview_plot(df_video):
     outputs: Emotions over whole video, independent of character. Just the time-series
   
     '''
-    emotions = ['Angry', 'Disgust', 'Fear', 'Sad', 'Neutral', 'Happy', 'Surprise']
+    emotions = df_video.emotion.unique().tolist()
     cb_palette = get_cb_palette(emotions)
+
     grouped_df = df_video.groupby(['frame', 'emotion'])['probability'].sum().unstack()
     normalized_df = grouped_df.div(grouped_df.sum(axis=1), axis=0)
     normalized_df = normalized_df.rolling(window=10).mean().dropna()
@@ -213,8 +214,9 @@ def get_emotion_landscape(df_single_person):
     This is the plot for the time series for a single character
     '''
     # Create the plot 
-    emotions = ['Angry', 'Disgust', 'Fear', 'Sad', 'Neutral', 'Happy', 'Surprise']
+    emotions = df_single_person.emotion.unique().tolist()
     cb_palette = get_cb_palette(emotions)
+
     fig = px.area(df_single_person, x="frame", y="probability", color="emotion",
                 color_discrete_sequence=cb_palette, hover_data={"text": df_single_person['emotion']})
 
@@ -309,9 +311,13 @@ def get_radar_plot(df_radar):
 
 
 def get_strongest_emotions_plot(df):
-    cb_palette = get_pallette()
+
+
     df_max_rows = df.groupby('frame')['probability'].idxmax().reset_index()
     df_max_probs = df.loc[df_max_rows['probability']]
+
+    emotions = df_max_probs.emotion.unique().tolist()
+    cb_palette = get_cb_palette(emotions)
 
     fig = px.bar(df_max_probs, x='frame', y='probability', color='emotion', 
                 color_discrete_sequence=cb_palette, hover_data={"text": df_max_probs['emotion']})
