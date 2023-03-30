@@ -187,9 +187,8 @@ def update_video_stats(submit_clicks, analysis_clicks, input_value):
 
         elif 'analysis-button' in triggered_by:
             nxp = nx.NeuralXpressoSession(yt_link=input_value)
-            result = nxp.run_analysis(main_character_threshold=0.2)
-
-  
+            result = nxp.run_analysis(main_character_threshold=0.25, skip_frames=12)
+            data = result['new_export']['main_character_data']
 
             figures = []
 
@@ -200,10 +199,12 @@ def update_video_stats(submit_clicks, analysis_clicks, input_value):
 
             overview_graph = dcc.Graph(figure=overview_fig)
 
-            for ID in result['new_export']['main_character_data']:
-    
-                fig = plots.get_character_overview(result['new_export']['main_character_data'][ID], ID, result)
-                figures.append(fig)
+            for ID in data:
+                fig1 = plots.get_character_overview(data[ID], ID, result)
+                figures.append(fig1)
+                fig2 = plots.get_strongest_emotions_plot(data[ID])
+                figures.append(fig2)
+
 
             # Create dcc.Graph components for each character overview figure
             character_graphs = [dcc.Graph(figure=fig) for fig in figures]

@@ -6,9 +6,26 @@ import numpy as np
 import cv2
 
 
-def get_pallette():
-    return ['#CA3435', '#00ff00', '#0000ff', '#ff0000', '#ffff00', '#800080', '#ffa500']
-
+def get_cb_palette(emotions):
+    """
+    Return a plotly cb_palette mapping emotions to colors.
+    
+    Arguments:
+    emotions -- a list of emotions to map to colors
+    
+    Returns:
+    A plotly cb_palette object
+    """
+    color_map = {
+        'Angry': '#ff0000',
+        'Disgust': '#ffff00',
+        'Fear': '#ffa500',
+        'Sad': '#FC00CC',
+        'Neutral': '#00ff00',
+        'Happy': '#008080',
+        'Surprise': '#0000ff'
+    }
+    return [color_map[emotion] for emotion in emotions]
 
 
 def overview_plot(df_video):
@@ -17,7 +34,9 @@ def overview_plot(df_video):
     outputs: Emotions over whole video, independent of character. Just the time-series
   
     '''
-    cb_palette = get_pallette()
+    emotions = df_video.emotion.unique().tolist()
+    cb_palette = get_cb_palette(emotions)
+
     grouped_df = df_video.groupby(['frame', 'emotion'])['probability'].sum().unstack()
     normalized_df = grouped_df.div(grouped_df.sum(axis=1), axis=0)
     normalized_df = normalized_df.rolling(window=10).mean().dropna()
@@ -26,40 +45,33 @@ def overview_plot(df_video):
     fig = px.area(normalized_df, x=normalized_df.index, y=normalized_df.columns,
                 color_discrete_sequence=cb_palette)
     
-    fig.update_layout(
-            title={
-                'text': 'Probability of emotion per frame',
-                'font': {'size': 24, 'color': 'black'}
-                #'x': 0.5, #center header
-                #'y': 0.95 #center header
-            },
-            xaxis_title='Frames',
-            yaxis_title='Probability',
-            legend_title='Emotion',
-            font=dict(family='Arial', size=14),
-            margin=dict(l=50, r=50, t=100, b=50),
-            plot_bgcolor='white',
-            xaxis=dict(dtick=1),  #set the x-axis step 
-            yaxis=dict(
-            title='Emotions Probability',
-            title_standoff=3
-        )
-        )
-        
+ # Update the layout
+    fig.update_layout(   
+        title={
+            'text': 'Emotion Probability per frame',
+            'font': {'size': 24, 'color': 'black'},
+            'x': 0.5,
+            'y': 0.9,
+            'yanchor': 'middle'
+        },
+        xaxis_title='Frame',
+        yaxis_title='Probability',
+        legend_title='Emotion',
+        font=dict(family='Arial', size=14),
+        margin=dict(l=50, r=50, t=100, b=50),
+        plot_bgcolor='white'
+    )
 
     # Update the legend with customizations
     fig.update_traces(
         hovertemplate='<br>'.join([
             'Emotion: %{fullData.name}',
-            'Frame: %{x:.2f} ',
+            'Frame: %{x}',
             'Probability: %{y:.2f}'
         ]),
         hoverlabel=dict(bgcolor='white', font_size=14),
-        line=dict(width=2),
         showlegend=True,
-        stackgroup='one',
-        hoverinfo='all',
-
+        hoverinfo='all'
     )
 
     return fig
@@ -90,7 +102,8 @@ def get_radar_plot_overview(df_aggregated_emotion_counts):
     this plots the general Radar plot
     '''
     
-    cb_palette = get_pallette()
+    emotions = ['Angry', 'Disgust', 'Fear', 'Sad', 'Neutral', 'Happy', 'Surprise']
+    cb_palette = get_cb_palette(emotions)
 
 
     fig = go.Figure(data=go.Scatterpolar(
@@ -201,45 +214,39 @@ def get_emotion_landscape(df_single_person):
     This is the plot for the time series for a single character
     '''
     # Create the plot 
-    cb_palette = get_pallette()
+    emotions = df_single_person.emotion.unique().tolist()
+    cb_palette = get_cb_palette(emotions)
+
     fig = px.area(df_single_person, x="frame", y="probability", color="emotion",
                 color_discrete_sequence=cb_palette, hover_data={"text": df_single_person['emotion']})
 
-    # Update the layout 
-    fig.update_layout(
+    # Update the layout
+    fig.update_layout(   
         title={
-            'text': 'Probability of emotion per frame',
-            'font': {'size': 24, 'color': 'black'}
-            #'x': 0.5, #center header
-            #'y': 0.95 #center header
+            'text': 'Emotion Probability per frame',
+            'font': {'size': 24, 'color': 'black'},
+            'x': 0.5,
+            'y': 0.9,
+            'yanchor': 'middle'
         },
-        xaxis_title='Frames',
+        xaxis_title='Frame',
         yaxis_title='Probability',
         legend_title='Emotion',
         font=dict(family='Arial', size=14),
         margin=dict(l=50, r=50, t=100, b=50),
-        plot_bgcolor='white',
-        xaxis=dict(dtick=1),  #set the x-axis step 
-        yaxis=dict(
-        title=' Emotions Probability',
-        title_standoff=3
+        plot_bgcolor='white'
     )
-    )
-    
 
     # Update the legend with customizations
     fig.update_traces(
         hovertemplate='<br>'.join([
             'Emotion: %{fullData.name}',
-            'Frame: %{x:.2f} ',
+            'Frame: %{x}',
             'Probability: %{y:.2f}'
         ]),
         hoverlabel=dict(bgcolor='white', font_size=14),
-        line=dict(width=2),
         showlegend=True,
-        stackgroup='one',
-        hoverinfo='all',
-
+        hoverinfo='all'
     )
 
     return fig
@@ -254,7 +261,8 @@ def get_radar_plot(df_radar):
     '''
     This is the radar plot for a single character because df_radar was generated using df_single_character
     '''
-    cb_palette = get_pallette()
+    emotions = ['Angry', 'Disgust', 'Fear', 'Sad', 'Neutral', 'Happy', 'Surprise']
+    cb_palette = get_cb_palette(emotions)
 
 
     fig = go.Figure(data=go.Scatterpolar(
@@ -300,6 +308,75 @@ def get_radar_plot(df_radar):
     )
 
     return fig
+
+
+def get_strongest_emotions_plot(df):
+
+
+    df_max_rows = df.groupby('frame')['probability'].idxmax().reset_index()
+    df_max_probs = df.loc[df_max_rows['probability']]
+
+    emotions = df_max_probs.emotion.unique().tolist()
+    cb_palette = get_cb_palette(emotions)
+
+    fig = px.bar(df_max_probs, x='frame', y='probability', color='emotion', 
+                color_discrete_sequence=cb_palette, hover_data={"text": df_max_probs['emotion']})
+
+    # Update the layout
+    fig.update_layout(
+        polar=dict(
+            radialaxis=dict(
+                showticklabels=False,
+                
+            ),
+            angularaxis=dict(
+                tickfont=dict(size=14),
+                rotation=90,
+                direction='clockwise'
+            )
+        ),
+        showlegend=True,
+        legend=dict(
+        x=1.1,
+        y=0.5,
+        xanchor='left',
+        yanchor='middle',
+        title_font=dict(size=16),
+        orientation='v',
+        traceorder='reversed'
+        ),
+        margin=dict(t=80, b=50, l=50, r=50),
+        font=dict(size=16)
+    )
+
+    annotations = [
+        dict(
+            x=0.13,
+            y=1.17,
+            xref='paper',
+            yref='paper',
+            text='Strongest Emotion Per Frame',
+            showarrow=False,
+            font=dict(size=18)
+        ),
+    ]
+    fig.update_layout(annotations=annotations)
+
+    # Update the legend with customizations
+    fig.update_traces(
+        hovertemplate='<br>'.join([
+            'Emotion: %{fullData.name}',
+            'Frame: %{x}',
+            'Probability: %{y:.2f}'
+        ]),
+        hoverlabel=dict(bgcolor='white', font_size=14),
+        showlegend=True,
+        hoverinfo='all'
+    )
+
+    return fig
+
+
 
 
 def get_character_overview(df_video, ID, result):
@@ -383,6 +460,21 @@ def get_character_overview(df_video, ID, result):
 
     fig.update_xaxes(title_text="Emotion Counts", row=1, col=3)
     fig.update_yaxes(title_text="Prevalence", row=1, col=3)
+
+
+
+    annotations = [
+        dict(
+            x=0.13,
+            y=1.17,
+            xref='paper',
+            yref='paper',
+            text=f'Emotion-Landscape over Frames for Character {ID}',
+            showarrow=False,
+            font=dict(size=18)
+        ),
+    ]
+    fig.update_layout(annotations=annotations)
 
     return fig
 
