@@ -469,7 +469,7 @@ def get_character_overview(df_video, ID, result):
             y=1.17,
             xref='paper',
             yref='paper',
-            text='Emotion-Landscape over Frames for each Character',
+            text=f'Emotion-Landscape over Frames for Character {ID}',
             showarrow=False,
             font=dict(size=18)
         ),
