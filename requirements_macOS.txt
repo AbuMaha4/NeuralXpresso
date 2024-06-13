@@ -3,7 +3,7 @@ opencv_python==4.7.0.72
 pandas==1.5.3
 numpy==1.24.2
 matplotlib==3.7.1
-tensorflow_macos==2.11.0
+tensorflow_macos==2.13.0
 tensorflow_metal==0.7.1
 tensorflow_hub==0.13.0
 pytube==12.1.2
@@ -19,3 +19,5 @@ dash_bootstrap_templates==1.0.8
 
 
 seaborn==0.12.2
+
+

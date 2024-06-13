@@ -35,7 +35,17 @@ def overview_plot(df_video):
   
     '''
     emotions = df_video.emotion.unique().tolist()
-    cb_palette = get_cb_palette(emotions)
+    color_map = {
+    'Angry': '#ff0000',
+    'Disgust': '#ffff00',
+    'Fear': '#ffa500',
+    'Sad': '#FC00CC',
+    'Neutral': '#00ff00',
+    'Happy': '#008080',
+    'Surprise': '#0000ff'
+    } 
+    
+    cb_palette = [color_map[emotion] for emotion in emotions]
 
     grouped_df = df_video.groupby(['frame', 'emotion'])['probability'].sum().unstack()
     normalized_df = grouped_df.div(grouped_df.sum(axis=1), axis=0)
@@ -101,9 +111,18 @@ def get_radar_plot_overview(df_aggregated_emotion_counts):
     '''
     this plots the general Radar plot
     '''
+    color_map = {
+    'Angry': '#ff0000',
+    'Disgust': '#ffff00',
+    'Fear': '#ffa500',
+    'Sad': '#FC00CC',
+    'Neutral': '#00ff00',
+    'Happy': '#008080',
+    'Surprise': '#0000ff'
+    } 
     
     emotions = ['Angry', 'Disgust', 'Fear', 'Sad', 'Neutral', 'Happy', 'Surprise']
-    cb_palette = get_cb_palette(emotions)
+    cb_palette = [color_map[emotion] for emotion in emotions]
 
 
     fig = go.Figure(data=go.Scatterpolar(
@@ -215,7 +234,17 @@ def get_emotion_landscape(df_single_person):
     '''
     # Create the plot 
     emotions = df_single_person.emotion.unique().tolist()
-    cb_palette = get_cb_palette(emotions)
+    color_map = {
+    'Angry': '#ff0000',
+    'Disgust': '#ffff00',
+    'Fear': '#ffa500',
+    'Sad': '#FC00CC',
+    'Neutral': '#00ff00',
+    'Happy': '#008080',
+    'Surprise': '#0000ff'
+    } 
+    
+    cb_palette = [color_map[emotion] for emotion in emotions]
 
     fig = px.area(df_single_person, x="frame", y="probability", color="emotion",
                 color_discrete_sequence=cb_palette, hover_data={"text": df_single_person['emotion']})
@@ -261,8 +290,21 @@ def get_radar_plot(df_radar):
     '''
     This is the radar plot for a single character because df_radar was generated using df_single_character
     '''
+    #emotions = df_radar.emotion.unique().tolist()
     emotions = ['Angry', 'Disgust', 'Fear', 'Sad', 'Neutral', 'Happy', 'Surprise']
-    cb_palette = get_cb_palette(emotions)
+
+    color_map = {
+    'Angry': '#ff0000',
+    'Disgust': '#ffff00',
+    'Fear': '#ffa500',
+    'Sad': '#FC00CC',
+    'Neutral': '#00ff00',
+    'Happy': '#008080',
+    'Surprise': '#0000ff'
+    } 
+    
+    cb_palette = [color_map[emotion] for emotion in emotions]
+
 
 
     fig = go.Figure(data=go.Scatterpolar(
@@ -316,8 +358,20 @@ def get_strongest_emotions_plot(df):
     df_max_rows = df.groupby('frame')['probability'].idxmax().reset_index()
     df_max_probs = df.loc[df_max_rows['probability']]
 
-    emotions = df_max_probs.emotion.unique().tolist()
-    cb_palette = get_cb_palette(emotions)
+    #emotions = df_max_probs.emotion.unique().tolist()
+    
+    color_map = {
+    'Angry': '#ff0000',
+    'Disgust': '#ffff00',
+    'Fear': '#ffa500',
+    'Sad': '#FC00CC',
+    'Neutral': '#00ff00',
+    'Happy': '#008080',
+    'Surprise': '#0000ff'
+    } 
+    emotions = ['Angry', 'Disgust', 'Fear', 'Sad', 'Neutral', 'Happy', 'Surprise']
+
+    cb_palette = [color_map[emotion] for emotion in emotions]
 
     fig = px.bar(df_max_probs, x='frame', y='probability', color='emotion', 
                 color_discrete_sequence=cb_palette, hover_data={"text": df_max_probs['emotion']})

@@ -1,7 +1,10 @@
 import dash
-from dash import dcc
+import dash_core_components as dcc
+import dash_html_components as html
+
+
+
 from dash.dependencies import Input, Output, State
-from dash import html
 import dash_bootstrap_components as dbc
 from dash_bootstrap_templates import load_figure_template
 import pandas as pd
@@ -230,7 +233,7 @@ def update_video_stats(submit_clicks, analysis_clicks,input_value):
 
         elif 'analysis-button' in triggered_by:
             nxp = nx.NeuralXpressoSession(yt_link=input_value)
-            result = nxp.run_analysis(main_character_threshold=0.25, skip_frames=12)
+            result = nxp.run_analysis(video_output=True, main_character_threshold=0.25, skip_frames=5)
             data = result['new_export']['main_character_data']
 
             figures = []

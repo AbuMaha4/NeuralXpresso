@@ -18,7 +18,7 @@ class NeuralXpressoSession:
          
     def run_analysis(self,
                      skip_frames = 20,
-                     #batch_size = 10000,
+                     batch_size = 10000,
                      video_output = False,
                      face_detector_type = 'face_recognition',
                      emotion_detector_offset = 1.4,
@@ -243,6 +243,7 @@ class VideoProcessor:
         self.video_info_by_frame = []
 
         self.load_video_from_youtube()
+        self.batch_size = None
 
 
     def load_video_from_youtube(self):
@@ -295,41 +296,38 @@ class VideoProcessor:
         self.total_frames_processed_predicted = len(range(0, self.total_video_frame_count, self.skip_frames))
         
         #non-permanent solution
-        self.batch_size = int(self.total_frames_processed_predicted * 1.1)
+        if self.batch_size is None or self.batch_size == 0:
+            self.batch_size = self.total_frames_processed_predicted  # Or set to another default value
+
+        #self.batch_size = int(self.total_frames_processed_predicted * 1.1)
         # Calculate the number of batches required to process all the frames
-        self.num_batches_predicted = int(np.ceil(self.total_frames_processed_predicted / self.batch_size))   
+        #self.num_batches_predicted = int(np.ceil(self.total_frames_processed_predicted / self.batch_size))
 
     def get_batches(self):
-        # Initialize an empty numpy array to hold the frames
-        frames = np.empty((self.batch_size, self.height, self.width, 3), np.dtype('uint8'))
+        # Read all frames into a single batch
+        frames = []
+        frame_count = 0
+        
+        while True:
+            ret, frame = self.video.read()
+            if not ret:
+                break
+            if frame_count % self.skip_frames == 0:
+                frames.append(frame)
+            frame_count += 1
 
-        self.original_frames_read = 0
+        frames = np.array(frames)
 
-        # Read the frames in batches and fill up the numpy array
-        for batch_start in range(0, self.total_video_frame_count, self.batch_size * self.skip_frames):
-            batch_end = min(batch_start + (self.batch_size * self.skip_frames), self.total_video_frame_count)
-            batch_index = 0
+        print("Frames shape:", frames.shape)  # Debugging line
 
-
-            for i in range(batch_start, batch_end):
-                ret, frame = self.video.read()
-                self.original_frames_read +=1
-                if not ret:
-                    break
-
-                if i % self.skip_frames == 0:
-                    frames[batch_index] = frame
-                    batch_index += 1
-
-            # Resize the numpy array to fit the actual number of frames in the batch
-            if batch_index < self.batch_size:
-                frames = frames[:batch_index]
-
-            # Yield the current batch of frames
-            yield frames
+        # Check if frames array is 4-dimensional
+        if len(frames.shape) != 4:
+            raise ValueError("Frames array should be 4-dimensional, got shape: {}".format(frames.shape))
 
         # Release the video stream
         self.video.release()
+
+        yield frames
 
     @staticmethod
     def get_first_line(s):
@@ -339,7 +337,7 @@ class VideoProcessor:
             return s.split('\n', 1)[0]
         else:
             return s[:150].split(' ', 1)[0]
-    
+
     @staticmethod
     def get_image_array_from_URL(url):
         with urllib.request.urlopen(url) as url_response:
@@ -488,7 +486,7 @@ class FaceDetector:
 
 class EmotionDetector:
     def __init__(self, box_offset, frame_width, frame_height):
-        self.emotion_detector = load_model("models/emotion_model.hdf5", compile=False)
+        self.emotion_detector = load_model("/Users/mahaabu-khousa/Desktop/Projects/workspace/Private Projects/NeuralXpresso/models/emotion_model.hdf5", compile=False)
         self.emotion_categories = self.get_emotion_categories()
         self.box_offset = box_offset
         self.frame_width = frame_width
@@ -497,8 +495,9 @@ class EmotionDetector:
     def detect_emotion(self, frame, box):
 
         gray_cropped_face = self.crop_face(box, frame)
-
-        prob = self.emotion_detector.predict(gray_cropped_face)[0]  # check for underscore
+        prob = self.emotion_detector.predict(gray_cropped_face)
+        print("Emotion probabilities shape:", prob.shape)  # Debugging line
+        prob = prob[0]  # Ensure this is 1-dimensional
         return prob
     
     def crop_face(self, box, frame):
