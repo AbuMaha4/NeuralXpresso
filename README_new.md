@@ -1,4 +1,4 @@
-![pulsar_star_wp](./img/nx_header.png)
+![pulsar_star_wp](nx_header.png)
 
 ## Project Overview
 ### <span style="color: #21618C;"> **Objective:** </span>
@@ -76,7 +76,7 @@ If you want to run neuralxpresso locally, you can use the tests.ipynb notebook, 
 ### Demonstration 
 
 <video width="640" height="480" controls>
-  <source src="img/Output_video.mp4" type="video/mp4">
+  <source src="Output_video.mp4" type="video/mp4">
 </video>
 
 ## Dataset
@@ -146,5 +146,5 @@ NeuralXpresso provides a comprehensive tool for video analysis, combining state-
 ## Preesentation 
 
 <video width="640" height="480" controls>
-  <source src="img/Neuralexpresso.mp4" type="video/mp4">
+  <source src="Neuralexpresso.mp4" type="video/mp4">
 </video>
